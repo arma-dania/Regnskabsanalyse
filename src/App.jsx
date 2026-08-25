@@ -1416,7 +1416,7 @@ export default function App() {
       <Styles />
       <div className="ra-wrap">
         <header>
-          <p className="ra-eyebrow">Erhvervsakademi Dania · Markedsføringsøkonom AK · Forløb 3</p>
+          <p className="ra-eyebrow">Erhvervsakademi Dania · Markedsføringsøkonom AK · Forløb 2</p>
           <h1 className="ra-h1">Regnskabsanalyse</h1>
           <p className="ra-lead">
             Et læringsværktøj til regnskabsanalyse. AI klarer beregningen – du
