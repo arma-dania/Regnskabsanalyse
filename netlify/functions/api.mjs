@@ -79,7 +79,22 @@ async function login(req) {
     return fejl("For mange forsøg. Vent ti minutter, eller spørg underviseren om en ny kode.", 429);
 
   const indhold = await auth.loginMedKode(b.kode);
-  if (!indhold) return fejl("Den kode kender vi ikke. Tjek den efter, eller spørg underviseren.", 401);
+  if (!indhold) {
+    // Skriver en underviser sin kode her i stedet for på /underviser, logges
+    // vedkommende ind som underviser og sendes videre. Ellers ville beskeden
+    // "den kode kender vi ikke" få en gyldig kode til at ligne en forkert.
+    let underviser = null;
+    try {
+      underviser = auth.loginSomUnderviser(String(b.kode).trim());
+    } catch {
+      // Ingen underviserkoder sat – så er det bare en ukendt kode.
+    }
+    if (underviser) {
+      await lager.nulstilForsoeg(spaerrenoegle);
+      return json({ underviser: true }, 200, { "set-cookie": auth.saetCookie(await auth.lavSession(underviser)) });
+    }
+    return fejl("Den kode kender vi ikke. Tjek den efter, eller spørg underviseren.", 401);
+  }
   await lager.nulstilForsoeg(spaerrenoegle);
 
   const studerende = await lager.hentStuderende(indhold.holdId, indhold.studId);

@@ -698,6 +698,7 @@ const Styles = () => (
     .ra-login h2 { font-family: 'Fraunces', serif; font-size: 24px; margin: 0; color: var(--navy); }
     .ra-login p { margin: 0; font-size: 14px; color: var(--slate); line-height: 1.55; }
     .ra-login .ra-input { font-size: 18px; letter-spacing: .08em; }
+    .ra-login-underviser { font-size: 13px !important; } .ra-login-underviser a { color: var(--burgundy); font-weight: 700; }
     .ra-login-note { font-size: 12.5px !important; font-style: italic; border-top: 1px solid var(--line); padding-top: 10px; }
   `}</style>
 );
@@ -1568,7 +1569,8 @@ function LoginView({ onLogin }) {
     if (!kode.trim()) { setFejl("Skriv din adgangskode."); return; }
     setVenter(true); setFejl("");
     try {
-      await api("POST", "/api/login", { kode });
+      const svar = await api("POST", "/api/login", { kode });
+      if (svar.underviser) { window.location.href = "/underviser"; return; }
       onLogin(await api("GET", "/api/mig"));
     } catch (err) {
       setFejl(err.message);
@@ -1585,6 +1587,7 @@ function LoginView({ onLogin }) {
         {venter ? <><span className="ra-spinner" />Logger ind…</> : "Log ind"}
       </button>
       {fejl && <div className="ra-err">{fejl}</div>}
+      <p className="ra-login-underviser">Underviser? <a href="/underviser">Log ind på underviserens side →</a></p>
       <p className="ra-login-note">
         Din underviser kan se, hvor aktiv du er, og hvor langt op ad formuleringstrappen
         du er nået på hvert område – men ikke det, du skriver. Teksterne bruges kun til

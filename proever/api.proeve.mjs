@@ -223,6 +223,15 @@ test("en studerende slettes med alt, hvad der er gemt om vedkommende", async () 
   assert.equal((await browser("10.0.2.3")("POST", "/api/login", { kode: studerende.anne.kode })).status, 401);
 });
 
+test("en underviserkode på forsiden logger ind som underviser", async () => {
+  const b = browser("10.0.3.1");
+  const r = await b("POST", "/api/login", { kode: " kun-lokal-proeve-arne " });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.underviser, true);
+  assert.equal((await b("GET", "/admin-api/mig")).data.underviser, "arne");
+  assert.equal((await b("GET", "/api/mig")).status, 401, "en underviser er ikke en studerende");
+});
+
 test("login spærres efter for mange forkerte forsøg fra samme adresse", async () => {
   const gaetter = browser("10.9.9.9");
   for (let i = 0; i < 10; i++) assert.equal((await gaetter("POST", "/api/login", { kode: "aaaa-bbbb" })).status, 401);
