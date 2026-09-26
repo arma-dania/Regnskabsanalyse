@@ -26,6 +26,11 @@ Trin 3 og 4 er skåret, så de ikke glider sammen: trin 3 vurderer tallet mod en
 tommelfingerregel); trin 4 drager **konsekvensen for forretningsmodellen** og
 ender i en anbefaling.
 
+Fanen *Formuleringstrappen* forklarer trappen for de studerende med
+sætningsstartere, svage og stærke formuleringer, et gennemgået eksempel og en
+lille øvelse. Eksemplerne bruger en tænkt virksomhed med opdigtede tal – aldrig
+opgavens cases, så analysen ikke bliver foræret.
+
 Trinnene, deres hjælpetekster og kravene til hvert niveau står ét sted:
 `netlify/functions/lib/trappe.mjs`. Både prompterne til Claude og
 brugerfladen læser derfra.
@@ -180,6 +185,7 @@ Netlify-konto eller deploy. Underviserkoden lokalt er `kun-lokal-proeve-arne`
 | Fil | Indhold |
 | --- | --- |
 | `src/App.jsx` | Værktøjet til de studerende: nøgletal, DuPont, analyseopgaven, quiz |
+| `src/Trappen.jsx` | Fanen *Formuleringstrappen*: trinnene forklaret med sætningsstartere, svage/stærke formuleringer, et gennemgået eksempel og en øvelse. Generel – bruger ingen af opgavens cases |
 | `src/underviser.jsx` | Underviserens overblik |
 | `src/api.js` | Klientens forbindelse til serveren |
 | `netlify/functions/api.mjs` | De studerendes API |

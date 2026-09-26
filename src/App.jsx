@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { api, noter } from "./api.js";
+import TrappenView from "./Trappen.jsx";
 // Trappen og trinlogikken hentes fra serverens egne filer, så trinnenes navne,
 // spørgsmål og beregningen af niveau kun står ét sted.
 import { TRIN, NIVEAUNAVN, MAKS_TRINTEGN, MAKS_KONKLUSIONSTEGN } from "../netlify/functions/lib/trappe.mjs";
@@ -705,7 +706,7 @@ const Styles = () => (
 
 /* --------------------------- VIEWS ------------------------------ */
 
-function IntroView() {
+function IntroView({ visTrappen }) {
   return (
     <div className="ra-fade">
       <p className="ra-lead" style={{ marginTop: 0, marginBottom: 26 }}>
@@ -739,7 +740,8 @@ function IntroView() {
         Trin 1–3 skriver du for hvert af de fem analyseområder. Trin 4 hører til den
         samlede konklusion, fordi koblingen til forretningsmodellen først kan laves,
         når du har læst alle fem områder. Det er det trin, der viser, at du forstår
-        virksomheden – ikke kun tallene.
+        virksomheden – ikke kun tallene.{" "}
+        <button className="ra-link" onClick={visTrappen}>Se trappen forklaret med eksempler →</button>
       </p>
       <p className="ra-eyebrow" style={{ marginBottom: 14 }}>De fem analyseområder</p>
       <div className="ra-grid ra-grid-2">
@@ -871,7 +873,7 @@ function gemUdkast(bruger, data) {
   try { localStorage.setItem(udkastNoegle(bruger), JSON.stringify(data)); } catch { /* privat vindue o.l. */ }
 }
 
-function AnalyseView({ bruger }) {
+function AnalyseView({ bruger, visTrappen }) {
   const udkast = useMemo(() => hentUdkast(bruger), [bruger]);
   const [caseId, setCaseId] = useState("let");
   const [aiCase, setAiCase] = useState(udkast.aiCase || null);
@@ -1131,7 +1133,8 @@ function AnalyseView({ bruger }) {
       </div>
       <p className="ra-trappeintro">
         Skriv dig op ad trappen. Hvert trin vurderes for sig: en konstatering skal ikke forklare,
-        og en forklaring skal ikke vurdere – det er næste trins opgave.
+        og en forklaring skal ikke vurdere – det er næste trins opgave.{" "}
+        <button className="ra-link" onClick={visTrappen}>Se trappen forklaret →</button>
       </p>
 
       {OMR_TRIN.map((t) => (
@@ -1553,6 +1556,7 @@ function QuizView() {
 
 const TABS = [
   { id: "intro", label: "Sådan virker det" },
+  { id: "trappen", label: "Formuleringstrappen" },
   { id: "ref", label: "Nøgletal" },
   { id: "dupont", label: "DuPont" },
   { id: "analyse", label: "Analyseopgave" },
@@ -1649,10 +1653,11 @@ export default function App() {
               {TABS.map((t) => (<button key={t.id} className={"ra-tab" + (tab === t.id ? " active" : "")} onClick={() => skiftFane(t.id)}>{t.label}</button>))}
             </nav>
             <main key={tab}>
-              {tab === "intro" && <IntroView />}
+              {tab === "intro" && <IntroView visTrappen={() => skiftFane("trappen")} />}
+              {tab === "trappen" && <TrappenView tilAnalyse={() => skiftFane("analyse")} />}
               {tab === "ref" && <ReferenceView />}
               {tab === "dupont" && <DuPontView />}
-              {tab === "analyse" && <AnalyseView bruger={bruger} />}
+              {tab === "analyse" && <AnalyseView bruger={bruger} visTrappen={() => skiftFane("trappen")} />}
               {tab === "quiz" && <QuizView />}
             </main>
           </>
