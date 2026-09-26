@@ -86,3 +86,26 @@ test("et nyt AI-sæt uden alle fem områder afvises", () => {
   const fire = Object.fromEntries(trappe.OMRAADER.slice(0, 4).map(o => [o.id, [{ n: "a", a: "1", b: "2", udv: "↑" }]]));
   assert.equal(trappe.tolkNytSaet(JSON.stringify({ navn: "X", analyse: fire })), null);
 });
+
+test("hvert område ved, hvor dets årsagskæder fortsætter", () => {
+  for (const o of trappe.OMRAADER) assert.ok(o.sammenhaeng?.length > 50, o.id);
+});
+
+test("feedbacken må ikke kræve et andet områdes nøgletal", () => {
+  const omraade = trappe.findOmraade("rentabilitet");
+  const p = trappe.feedbackPrompt({
+    omraade, virksomhed: "X", noegletal: [{ n: "Afkastningsgrad", a: "1", b: "2", udv: "↑" }],
+    beretning: "Bruttomarginen steg fra 40 % til 42 %.", trin: { t1: "a" },
+  });
+  assert.ok(p.includes("Kræv aldrig nøgletal fra et andet område"));
+  assert.ok(p.includes("heller ikke hvis de nævnes i ledelsesberetningen"));
+  assert.ok(p.includes("HVORFOR overskudsgraden ændrer sig, hører til indtjeningsevne"));
+  assert.ok(p.includes("En sådan henvisning tæller som en god forklaring på trin 2"));
+  assert.ok(p.includes("Forretningsmodellen må bruges som målestok på trin 3, men kræv den ikke"));
+});
+
+test("den vejledende besvarelse holder sig inden for området, og konklusionen samler kæderne", () => {
+  const omraade = trappe.findOmraade("rentabilitet");
+  assert.ok(trappe.vejledendePrompt({ omraade, virksomhed: "X", noegletal: [] }).includes("Brug kun områdets egne nøgletal"));
+  assert.ok(trappe.konklusionPrompt({ virksomhed: "X", omraadetekster: "", konklusion: "b" }).includes("årsagskæderne på tværs skal samles"));
+});

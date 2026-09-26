@@ -17,7 +17,7 @@ export const TRIN = [
     hjaelp:
       "Læs tallene op og sig retningen. Hvilke nøgletal bevæger sig, hvor meget, og hvilken vej? Ingen årsager og ingen vurdering endnu.",
     krav:
-      "Trinnet er nået, når de væsentlige nøgletal for området er nævnt med konkrete tal og med en rigtig angivelse af retning og størrelsesorden.",
+      "Trinnet er nået, når de centrale nøgletal for området – ikke nødvendigvis dem alle – er nævnt med konkrete tal og med en rigtig angivelse af retning og størrelsesorden.",
   },
   {
     id: "t2",
@@ -25,9 +25,9 @@ export const TRIN = [
     navn: "Forklaring",
     spoergsmaal: "Hvorfor er det sket?",
     hjaelp:
-      "Forklar årsagen. Brug sammenhængene mellem nøgletallene (fx AG = overskudsgrad × aktivernes omsætningshastighed) og det, regnskabet og ledelsesberetningen fortæller.",
+      "Forklar årsagen med områdets egne nøgletal og sammenhængene mellem dem (fx AG = overskudsgrad × aktivernes omsætningshastighed). Fortsætter årsagen i et andet område, så peg frem: \"hvorfor overskudsgraden steg, undersøger jeg under indtjeningsevne\".",
     krav:
-      "Trinnet er nået, når udviklingen føres tilbage til en årsag, der kan belægges i tallene eller i beretningen – ikke blot gentages i andre ord.",
+      "Trinnet er nået, når udviklingen føres tilbage til en årsag, der kan belægges i områdets nøgletal, i regnskabet eller i beretningen – ikke blot gentages i andre ord. Fortsætter årsagskæden i et andet analyseområde, er en henvisning dertil nok; det andet områdes nøgletal kræves ikke her.",
   },
   {
     id: "t3",
@@ -35,9 +35,9 @@ export const TRIN = [
     navn: "Vurdering",
     spoergsmaal: "Er det godt eller skidt – målt mod hvad?",
     hjaelp:
-      "Vurder tallet op mod en målestok: sidste år, branchen, markedsrenten, en tommelfingerregel eller virksomhedens eget mål. Sig målestokken højt.",
+      "Vurder tallet op mod en målestok: sidste år, branchen, markedsrenten, en tommelfingerregel eller virksomhedens eget mål. Sig målestokken højt. Forretningsmodellen kan også være målestok – hvad er normalt for sådan en virksomhed?",
     krav:
-      "Trinnet er nået, når vurderingen er holdt op mod en navngivet målestok. En vurdering uden målestok ('det er lavt') er højst delvist.",
+      "Trinnet er nået, når vurderingen er holdt op mod en navngivet målestok. En vurdering uden målestok ('det er lavt') er højst delvist. Forretningsmodellen må bruges som målestok, men kræves ikke her – koblingen til modellen er trin 4 i den samlede konklusion.",
   },
   {
     id: "t4",
@@ -62,12 +62,40 @@ export const NIVEAUNAVN = { naaet: "nået", delvist: "delvist", mangler: "mangle
 // Serveren kender områderne selv i stedet for at tro på klienten, så en
 // forkert eller opdigtet områdenøgle ikke kan lande i underviserens overblik.
 
+// "sammenhaeng" siger, hvor områdets årsagskæder fortsætter. Det bruges i
+// feedbacken, så Claude ikke kræver et andet områdes nøgletal – fx
+// bruttomarginen under rentabilitet – men i stedet belønner en henvisning.
 export const OMRAADER = [
-  { id: "rentabilitet", navn: "Rentabilitetsanalyse" },
-  { id: "indtjeningsevne", navn: "Indtjeningsevne" },
-  { id: "kapital", navn: "Kapitaltilpasning og pengestrømme" },
-  { id: "soliditet", navn: "Soliditet og likviditet" },
-  { id: "boers", navn: "Børsrelaterede nøgletal" },
+  {
+    id: "rentabilitet",
+    navn: "Rentabilitetsanalyse",
+    sammenhaeng:
+      "Rentabiliteten er toppen af kæden: AG = overskudsgrad × aktivernes omsætningshastighed. Her forklares udviklingen i AG ved at pege på, hvilken af de to faktorer der driver den, og EKF's afvigelse fra AG forklares med gearing og fremmedkapitalens forrentning. HVORFOR overskudsgraden ændrer sig, hører til indtjeningsevne; HVORFOR omsætningshastigheden ændrer sig, hører til kapitaltilpasning.",
+  },
+  {
+    id: "indtjeningsevne",
+    navn: "Indtjeningsevne",
+    sammenhaeng:
+      "Indtjeningsevnen forklarer overskudsgraden fra rentabilitetsanalysen: vækst i omsætning mod vækst i primært resultat (indekstal), bruttomargin, kapacitetsomkostningernes vægt (driftsmæssig gearing, kapacitetsgrad) og robustheden (nulpunkt, sikkerhedsmargin). Kapitalbinding hører til kapitaltilpasning.",
+  },
+  {
+    id: "kapital",
+    navn: "Kapitaltilpasning og pengestrømme",
+    sammenhaeng:
+      "Kapitaltilpasningen forklarer aktivernes omsætningshastighed fra rentabilitetsanalysen: hvor kapitalen er bundet (anlæg, varelager, debitorer), hvor hurtigt den omsættes, og om driften bliver til penge. Hvad kapitalbindingen betyder for betalingsevnen, hører til soliditet og likviditet.",
+  },
+  {
+    id: "soliditet",
+    navn: "Soliditet og likviditet",
+    sammenhaeng:
+      "Soliditeten hænger sammen med gearingen fra rentabilitetsanalysen, og likviditeten påvirkes af kapitalbindingen fra kapitaltilpasning. Her vurderes robustheden på langt og kort sigt; årsagerne til kapitalbindingen hører til kapitaltilpasning.",
+  },
+  {
+    id: "boers",
+    navn: "Børsrelaterede nøgletal",
+    sammenhaeng:
+      "Resultat pr. aktie følger årets resultat, og indre værdi følger egenkapitalen. Her vurderes markedets syn på virksomheden; årsagerne til indtjeningen hører til rentabilitet og indtjeningsevne.",
+  },
 ];
 
 export const findOmraade = id => OMRAADER.find(o => o.id === id) ?? null;
@@ -207,6 +235,11 @@ ${DATAVARSEL}
 Nøgletal for området (2024 → 2025):
 ${noegletalTekst(noegletal)}${modelBlok(forretningsmodel)}${beretningBlok(beretning)}
 
+Områdets grænser. Den studerende arbejder i ét af fem analyseområder og har KUN fået nøgletallene ovenfor for dette område. ${omraade.sammenhaeng}
+- Kræv aldrig nøgletal fra et andet område – heller ikke hvis de nævnes i ledelsesberetningen eller kan regnes ud af regnskabet. Bruger den studerende dem selv, er det fint, men det er ikke en betingelse for noget niveau.
+- Fortsætter årsagen i et andet område, er det rigtige råd en henvisning ("det undersøger jeg under …") – ikke at hente det andet områdes tal ind her. En sådan henvisning tæller som en god forklaring på trin 2.
+- Forretningsmodellen må bruges som målestok på trin 3, men kræv den ikke. At forklare tallene ud fra modellen og drage konsekvensen for den er trin 4 i den samlede konklusion – ikke dette områdes opgave.
+
 Den studerende skriver på en formuleringstrappe. De tre trin, der hører til et analyseområde:
 ${OMRAADETRIN.map(id => {
     const t = findTrin(id);
@@ -217,14 +250,14 @@ Den studerendes svar:
 
 ${trinTekst}
 
-Giv formativ feedback på dansk. Ingen karakter. Vurder HVERT trin på sine egne betingelser – en konstatering skal ikke kritiseres for at mangle en forklaring, og en forklaring ikke for at mangle en vurdering. Henvis til de konkrete nøgletal og tal. Brug præcis denne form, én til tre sætninger pr. trin:
+Giv formativ feedback på dansk. Ingen karakter. Vurder HVERT trin på sine egne betingelser – en konstatering skal ikke kritiseres for at mangle en forklaring, og en forklaring ikke for at mangle en vurdering. Henvis til de konkrete nøgletal og tal. Tag udgangspunkt i det, den studerende faktisk har skrevet, og giv højst ét forbedringsforslag pr. trin – ikke en liste over alt, der kunne tilføjes. Brug præcis denne form, én til to korte sætninger (højst ca. 40 ord) pr. trin:
 
 Trin 1 – Konstatering: <nået/delvist/mangler> – <din bemærkning>
 Trin 2 – Forklaring: <nået/delvist/mangler> – <din bemærkning>
 Trin 3 – Vurdering: <nået/delvist/mangler> – <din bemærkning>
 Næste skridt: <ét konkret forslag, der flytter den studerende ét trin op>
 
-Skriv højst 230 ord i alt.
+Skriv højst 180 ord i alt.
 
 Afslut derefter med en linje, der kun indeholder ${MARKOER}, og derefter én linje gyldig JSON – ingen markdown-fences – i præcis denne form:
 {"t1":"naaet|delvist|mangler","t2":"naaet|delvist|mangler","t3":"naaet|delvist|mangler","temaer":["<id>"]}
@@ -254,6 +287,8 @@ ${skaer(konklusion, MAKS_KONKLUSIONSTEGN)}
 
 Trin 4 er trappens øverste trin. ${t4.krav}
 
+Det er her – og ikke i de enkelte områder – at årsagskæderne på tværs skal samles: at udviklingen i afkastningsgraden forklares af overskudsgraden (indtjeningsevne) og aktivernes omsætningshastighed (kapitaltilpasning), at kapitalbindingen slår igennem i likviditeten, og at det hele holdes op mod forretningsmodellen. Har den studerende peget frem fra ét område til et andet, så se efter, om kæden bliver samlet her.
+
 Giv formativ feedback på dansk. Ingen karakter. Brug præcis denne form:
 
 Hænger det sammen på tværs: <nået/delvist/mangler> – <binder konklusionen de fem områder til ét billede, eller er den fem løsrevne afsnit? peg på modsætninger, der ikke er forklaret>
@@ -277,11 +312,13 @@ export function vejledendePrompt({ omraade, virksomhed, forretningsmodel, beretn
 
 ${noegletalTekst(noegletal)}${modelBlok(forretningsmodel)}${beretningBlok(beretning)}
 
+Områdets grænser: ${omraade.sammenhaeng} Brug kun områdets egne nøgletal. Fortsætter en årsag i et andet område, så skriv en henvisning ("det undersøger jeg under …") i stedet for at hente det andet områdes tal ind.
+
 Besvarelsen skal følge formuleringstrappens tre første trin og vise dem tydeligt. Brug præcis denne form:
 
-Trin 1 – Konstatering: <ca. 50 ord: de væsentlige nøgletal med konkrete tal og retning>
-Trin 2 – Forklaring: <ca. 70 ord: årsagerne, med brug af sammenhængene mellem nøgletallene og eventuelt beretningen>
-Trin 3 – Vurdering: <ca. 70 ord: vurdering op mod en navngivet målestok – sidste år, branchen, markedsrenten eller en tommelfingerregel>
+Trin 1 – Konstatering: <ca. 50 ord: de centrale nøgletal med konkrete tal og retning>
+Trin 2 – Forklaring: <ca. 70 ord: årsagerne, med brug af sammenhængene mellem områdets nøgletal og eventuelt beretningen – og en henvisning, hvor kæden fortsætter i et andet område>
+Trin 3 – Vurdering: <ca. 70 ord: vurdering op mod en navngivet målestok – sidste år, branchen, markedsrenten, en tommelfingerregel eller det normale for denne forretningsmodel>
 
 Skriv som en dygtig studerende, ikke som en lærebog. Ingen overskrifter ud over de tre trinlinjer.`;
 }

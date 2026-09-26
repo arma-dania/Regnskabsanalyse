@@ -1059,7 +1059,7 @@ function AnalyseView({ bruger }) {
               ) : (
                 <>
                   <p>{activeCase.forretningsmodel}</p>
-                  <p className="note">Du skal bruge modellen på trin 3, når du vurderer tallene – og på trin 4 i den samlede konklusion.</p>
+                  <p className="note">Modellen kan være din målestok på trin 3 (hvad er normalt for sådan en virksomhed?) – og den er hele pointen på trin 4 i den samlede konklusion.</p>
                 </>
               )}
             </div>
