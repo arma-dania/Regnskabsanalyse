@@ -25,14 +25,19 @@ registerHooks({
   },
 });
 
-process.env.SESSION_HEMMELIGHED ??= "proevehemmelighed";
+// Prøveserverens egne værdier sættes altid – også når variablerne findes i
+// miljøet. Prøverne kører som en del af Netlifys build, og dér findes de
+// rigtige variabler (eller tomme, hvis de ikke gælder for den deploy
+// context). Prøverne må hverken afhænge af eller se de rigtige koder.
+//
 // Koderne hedder "kun-lokal-proeve-", fordi de står i et offentligt repo.
 // Sættes en af dem som rigtig kode i Netlify, kan enhver læse den på GitHub
 // – navnet skal gøre det åbenlyst, at de ikke er til det.
-process.env.ANTHROPIC_API_KEY ??= "kun-lokal-proeve-noegle";
-process.env.UNDERVISER_ARNE ??= "kun-lokal-proeve-arne";
-process.env.UNDERVISER_HELLE ??= "kun-lokal-proeve-helle";
-process.env.UNDERVISER_RASMUS ??= "kun-lokal-proeve-rasmus";
+process.env.SESSION_HEMMELIGHED = "proevehemmelighed";
+process.env.ANTHROPIC_API_KEY = "kun-lokal-proeve-noegle";
+process.env.UNDERVISER_ARNE = "kun-lokal-proeve-arne";
+process.env.UNDERVISER_HELLE = "kun-lokal-proeve-helle";
+process.env.UNDERVISER_RASMUS = "kun-lokal-proeve-rasmus";
 
 const api = (await import(path.join(ROD, "netlify/functions/api.mjs"))).default;
 const admin = (await import(path.join(ROD, "netlify/functions/admin.mjs"))).default;
