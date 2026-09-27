@@ -87,7 +87,7 @@ der mangler, så tilføj en linje – den er med ved næste feedback.
 **Gemmes** (i Netlify Blobs): holdets navn; den studerendes navn og kode; for
 hvert område det seneste og det bedste trinniveau, antal forsøg og højst to
 temamærkater; en log over handlinger (login, feedback, vejledende besvarelse,
-fanebesøg, afsluttet quiz) med tidspunkt.
+fanebesøg, hentet rapport) med tidspunkt.
 
 **Gemmes ikke:** det, de studerende skriver. Teksten sendes til Claude for at
 få feedback og forsvinder derefter. Det står også på login-siden, så de
@@ -184,7 +184,8 @@ Netlify-konto eller deploy. Underviserkoden lokalt er `kun-lokal-proeve-arne`
 
 | Fil | Indhold |
 | --- | --- |
-| `src/App.jsx` | Værktøjet til de studerende: nøgletal, DuPont, analyseopgaven, quiz |
+| `src/App.jsx` | Værktøjet til de studerende: nøgletal og analyseopgaven |
+| `src/DuPont.jsx` | Fanen *DuPont*: pyramiden i fem niveauer og gearingsformlen |
 | `src/Trappen.jsx` | Fanen *Formuleringstrappen*: trinnene forklaret med sætningsstartere, svage/stærke formuleringer, et gennemgået eksempel og en øvelse. Generel – bruger ingen af opgavens cases |
 | `src/underviser.jsx` | Underviserens overblik |
 | `src/api.js` | Klientens forbindelse til serveren |

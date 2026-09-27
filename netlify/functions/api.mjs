@@ -220,7 +220,7 @@ const nytSaet = req =>
 /* ---------- Hændelser fra klienten ---------- */
 // Kun en lukket liste, så klienten ikke kan fylde overblikket med opdigtede
 // hændelsestyper.
-const TILLADTE_HAENDELSER = new Set(["fane", "quiz-faerdig", "rapport", "tips", "model-vist"]);
+const TILLADTE_HAENDELSER = new Set(["fane", "rapport", "tips", "model-vist"]);
 
 const haendelse = req =>
   medSession(req, async ({ session }) => {
