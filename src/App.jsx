@@ -557,8 +557,8 @@ const Styles = () => (
     .ra-tag { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cream); background: var(--burgundy); padding: 4px 9px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
     .ra-card-head h4 { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; margin: 0; line-height: 1.2; color: var(--navy); }
     .ra-card-head .kort { font-size: 13px; color: var(--slate); font-weight: 600; }
-    .ra-plus { margin-left: auto; font-size: 22px; color: var(--slate); transition: transform .2s; flex-shrink: 0; }
-    .ra-card.open .ra-plus { transform: rotate(45deg); }
+    .ra-plus { margin-left: auto; flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--burgundy); color: var(--cream); display: inline-flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 700; line-height: 1; transition: background .15s, transform .15s; }
+    .ra-card-head:hover .ra-plus { background: var(--navy); }
     .ra-formel { font-family: 'Spline Sans Mono', monospace; font-size: 13.5px; background: var(--neutral); border: 1px solid var(--line); border-radius: 7px; padding: 11px 13px; margin: 0 18px 4px; color: var(--navy); line-height: 1.5; }
     .ra-body { padding: 4px 18px 18px; }
     .ra-row { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.5; }
@@ -819,7 +819,7 @@ function ReferenceView() {
               <div className="ra-card-head" onClick={() => setOpen(isOpen ? null : n.id)} role="button" aria-expanded={isOpen}>
                 <span className="ra-tag">{g.navn}</span>
                 <div><h4>{n.navn}</h4>{n.kort && <span className="kort">{n.kort}</span>}</div>
-                <span className="ra-plus">+</span>
+                <span className="ra-plus" aria-hidden="true">{isOpen ? "−" : "+"}</span>
               </div>
               <div className="ra-formel">{n.formel}</div>
               {isOpen && <Uddybning n={n} aabn={aabn} />}
