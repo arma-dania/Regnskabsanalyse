@@ -442,12 +442,6 @@ const TIPS = {
   ],
 };
 
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-  return a;
-}
-
 /* --------------------------- WORD-RAPPORT --------------------------- */
 
 function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -571,24 +565,12 @@ const Styles = () => (
     .ra-row:first-child { border-top: none; }
     .ra-row .lab { flex: 0 0 80px; font-weight: 700; color: var(--burgundy); font-size: 12px; letter-spacing: .03em; text-transform: uppercase; padding-top: 1px; }
     .ra-tip { font-size: 13px; font-style: italic; color: var(--slate); }
-    .ra-panel { border: 1.5px solid var(--line); border-top: 3px solid var(--burgundy); border-radius: 10px; background: #fff; padding: 26px 22px; text-align: center; }
-    .ra-prompt { font-family: 'Fraunces', serif; font-size: clamp(21px, 4.4vw, 30px); font-weight: 700; margin: 6px 0 4px; line-height: 1.2; color: var(--navy); }
     .ra-sub { color: var(--slate); font-size: 14px; }
-    .ra-opts { display: grid; gap: 10px; margin-top: 22px; }
-    .ra-opt { border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 14px; cursor: pointer; font-weight: 600; font-size: 14.5px; color: var(--navy); transition: all .12s; text-align: left; line-height: 1.4; font-family: inherit; }
-    .ra-opt:hover:not(:disabled) { border-color: var(--navy); }
-    .ra-opt:disabled { cursor: default; }
-    .ra-opt.correct { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
-    .ra-opt.wrong { background: var(--err-bg); border-color: var(--err); color: var(--err); }
     .ra-btn { border: none; background: var(--navy); color: var(--cream); border-radius: 8px; padding: 12px 24px; font-weight: 700; font-size: 15px; cursor: pointer; font-family: inherit; transition: opacity .15s; }
     .ra-btn:hover:not(:disabled) { opacity: .9; } .ra-btn:disabled { opacity: .55; cursor: default; }
     .ra-btn.accent { background: var(--burgundy); }
     .ra-btn.sec { background: none; color: var(--navy); border: 1.5px solid var(--navy); }
     .ra-btn.sm { padding: 9px 16px; font-size: 13.5px; }
-    .ra-score { display: flex; gap: 22px; justify-content: center; margin-bottom: 18px; }
-    .ra-score .item { text-align: center; }
-    .ra-score .num { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 800; line-height: 1; color: var(--navy); }
-    .ra-score .cap { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--slate); margin-top: 4px; }
     .ra-callout { border-left: 4px solid var(--gold); background: var(--neutral); border-radius: 0 8px 8px 0; padding: 14px 16px; margin-top: 16px; font-size: 14px; line-height: 1.55; color: var(--slate); text-align: left; }
     .ra-callout b { color: var(--navy); } .ra-callout .ra-mono { color: var(--navy); }
     .ra-footer { margin-top: 40px; padding-top: 18px; border-top: 1.5px solid var(--line); font-size: 12px; color: var(--slate); }
@@ -714,8 +696,8 @@ function IntroView({ visTrappen }) {
         søger at sige noget om</b>, og kunne <b>argumentere ud fra tallene</b>.
       </p>
       <div className="ra-callout" style={{ marginBottom: 30 }}>
-        <b>Sådan bruger du siden:</b> Lær nøgletallene i <b>Nøgletal</b> og test
-        din forståelse af, hvad de siger noget om, og de fem områder i <b>Quiz</b>.
+        <b>Sådan bruger du siden:</b> Lær nøgletallene, og hvad de siger noget om,
+        i <b>Nøgletal</b>, og se sammenhængen mellem dem i <b>DuPont</b>.
         I <b>Analyseopgave</b> vælger du en
         virksomhed (let, mellem eller svær – eller få et helt nyt sæt tal) og
         skriver din analyse op ad formuleringstrappen. Du får feedback på hvert
@@ -1270,129 +1252,12 @@ function AnalyseView({ bruger, visTrappen }) {
   );
 }
 
-function lavSpoergsmaal() {
-  const out = [];
-  const pulje = shuffle(NOEGLETAL);
-  let p = 0;
-  const omraadeNavne = GRUPPE_NOEGLER.map((k) => GRUPPER[k].navn);
-
-  // Type 1 – Hvad siger nøgletallet? (7): vælg den rigtige betydning
-  for (let c = 0; c < 7 && p < pulje.length; c++, p++) {
-    const n = pulje[p];
-    const dist = shuffle(NOEGLETAL.filter((x) => x.id !== n.id && x.beskrivelse !== n.beskrivelse)).slice(0, 3);
-    const valg = shuffle([n, ...dist]);
-    out.push({
-      type: "viser", eyebrow: "Hvad siger nøgletallet?",
-      spm: `Hvad fortæller "${n.navn}"?`,
-      valg: valg.map((x) => ({ tekst: x.beskrivelse, rigtig: x.id === n.id })),
-      forklaring: `"${n.navn}" hører til ${GRUPPER[n.gruppe].navn}.${n.note ? " " + n.note : ""}`,
-    });
-  }
-
-  // Type 2 – Find nøgletallet (5): fra betydning til navn
-  for (let c = 0; c < 5 && p < pulje.length; c++, p++) {
-    const n = pulje[p];
-    const dist = shuffle(NOEGLETAL.filter((x) => x.id !== n.id && x.navn !== n.navn)).slice(0, 3);
-    const valg = shuffle([n, ...dist]);
-    out.push({
-      type: "maaler", eyebrow: "Find nøgletallet",
-      spm: "Hvilket nøgletal passer på beskrivelsen?",
-      cue: n.beskrivelse,
-      valg: valg.map((x) => ({ tekst: x.navn, rigtig: x.id === n.id })),
-      forklaring: `Det er "${n.navn}" fra ${GRUPPER[n.gruppe].navn}.`,
-    });
-  }
-
-  // Type 3 – Hvilket område hører nøgletallet til? (5)
-  for (let c = 0; c < 5 && p < pulje.length; c++, p++) {
-    const n = pulje[p];
-    const korrekt = GRUPPER[n.gruppe].navn;
-    const andre = shuffle(omraadeNavne.filter((nv) => nv !== korrekt)).slice(0, 3);
-    const valg = shuffle([korrekt, ...andre]);
-    out.push({
-      type: "omraade", eyebrow: "De fem områder",
-      spm: `Hvilket analyseområde hører "${n.navn}" til?`,
-      valg: valg.map((nv) => ({ tekst: nv, rigtig: nv === korrekt })),
-      forklaring: `"${n.navn}" er et nøgletal under ${korrekt} – ${GRUPPER[n.gruppe].kort}`,
-    });
-  }
-
-  // Type 4 – Kernespørgsmålet i et område (3)
-  shuffle(GRUPPE_NOEGLER).slice(0, 3).forEach((k) => {
-    const andre = shuffle(GRUPPE_NOEGLER.filter((x) => x !== k)).slice(0, 3);
-    const valg = shuffle([k, ...andre]);
-    out.push({
-      type: "omraadeFokus", eyebrow: "De fem områder",
-      spm: `Hvad er kernespørgsmålet i analyseområdet "${GRUPPER[k].navn}"?`,
-      valg: valg.map((x) => ({ tekst: GRUPPER[x].kort, rigtig: x === k })),
-      forklaring: `${GRUPPER[k].navn}: ${GRUPPER[k].formaal}`,
-    });
-  });
-
-  return shuffle(out);
-}
-
-function QuizView() {
-  const [spm, setSpm] = useState(lavSpoergsmaal);
-  const [idx, setIdx] = useState(0);
-  const [valg, setValg] = useState(null);
-  const [score, setScore] = useState(0);
-  const [faerdig, setFaerdig] = useState(false);
-  const aktuel = spm[idx];
-  function svar(v, i) { if (valg !== null) return; setValg(i); if (v.rigtig) setScore((s) => s + 1); }
-  function naeste() {
-    setValg(null);
-    if (idx + 1 >= spm.length) { setFaerdig(true); noter("quiz-faerdig", `${score}/${spm.length}`); }
-    else setIdx((i) => i + 1);
-  }
-  function genstart() { setSpm(lavSpoergsmaal()); setIdx(0); setValg(null); setScore(0); setFaerdig(false); }
-  if (faerdig) {
-    const pct = Math.round((score / spm.length) * 100);
-    const ros = pct >= 90 ? "Fremragende – du har styr på nøgletallene!" : pct >= 70 ? "Flot – du er godt på vej." : pct >= 50 ? "Godt forsøg – repetér i Nøgletal-fanen." : "Brug lidt mere tid i Nøgletal-fanen og prøv igen.";
-    return (
-      <div className="ra-fade">
-        <div className="ra-panel">
-          <p className="ra-eyebrow">Resultat</p>
-          <div className="ra-prompt">{score} / {spm.length}</div>
-          <div className="ra-sub">{pct} % rigtige</div>
-          <div className="ra-callout" style={{ textAlign: "center" }}>{ros}</div>
-          <div style={{ marginTop: 20 }}><button className="ra-btn" onClick={genstart}>Prøv igen</button></div>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="ra-fade">
-      <div className="ra-score">
-        <div className="item"><div className="num">{idx + 1}/{spm.length}</div><div className="cap">Spørgsmål</div></div>
-        <div className="item"><div className="num">{score}</div><div className="cap">Rigtige</div></div>
-      </div>
-      <div className="ra-panel">
-        <p className="ra-eyebrow">{aktuel.eyebrow || "Spørgsmål"}</p>
-        <div className="ra-prompt" style={{ fontSize: "clamp(19px,3.8vw,26px)" }}>{aktuel.spm}</div>
-        {aktuel.kode && <div className="ra-sub ra-mono" style={{ marginTop: 8 }}>{aktuel.kode}</div>}
-        {aktuel.cue && <div className="ra-sub" style={{ marginTop: 10, fontStyle: "italic" }}>«{aktuel.cue}»</div>}
-        <div className="ra-opts">
-          {aktuel.valg.map((v, i) => {
-            let cls = "ra-opt";
-            if (valg !== null) { if (v.rigtig) cls += " correct"; else if (i === valg) cls += " wrong"; }
-            return <button key={i} className={cls} disabled={valg !== null} onClick={() => svar(v, i)}>{v.tekst}</button>;
-          })}
-        </div>
-        {valg !== null && (<><div className="ra-callout">{aktuel.forklaring}</div>
-          <div style={{ marginTop: 18 }}><button className="ra-btn" onClick={naeste}>{idx + 1 >= spm.length ? "Se resultat" : "Næste →"}</button></div></>)}
-      </div>
-    </div>
-  );
-}
-
 const TABS = [
   { id: "intro", label: "Sådan virker det" },
   { id: "trappen", label: "Formuleringstrappen" },
   { id: "ref", label: "Nøgletal" },
   { id: "dupont", label: "DuPont" },
   { id: "analyse", label: "Analyseopgave" },
-  { id: "quiz", label: "Quiz" },
 ];
 
 function LoginView({ onLogin }) {
@@ -1490,7 +1355,6 @@ export default function App() {
               {tab === "ref" && <ReferenceView />}
               {tab === "dupont" && <DuPontView />}
               {tab === "analyse" && <AnalyseView bruger={bruger} visTrappen={() => skiftFane("trappen")} />}
-              {tab === "quiz" && <QuizView />}
             </main>
           </>
         )}
