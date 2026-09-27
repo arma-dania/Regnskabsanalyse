@@ -1,4 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { api, noter } from "./api.js";
+import TrappenView from "./Trappen.jsx";
+// Trappen og trinlogikken hentes fra serverens egne filer, så trinnenes navne,
+// spørgsmål og beregningen af niveau kun står ét sted.
+import { TRIN, NIVEAUNAVN, MAKS_TRINTEGN, MAKS_KONKLUSIONSTEGN } from "../netlify/functions/lib/trappe.mjs";
+import { trinNiveau, paaVej } from "../netlify/functions/lib/overblik.mjs";
 
 /*
   Regnskabsanalyse – interaktivt læringsværktøj
@@ -6,6 +12,8 @@ import React, { useState, useMemo } from "react";
   Design følger Erhvervsakademi Danias Design Guide (Navy/Burgundy/Gold/Cream).
   Nøgletal/definitioner følger lærebogens Bilag 2 (28 nøgletal, 5 analyseområder).
   Analyseopgaven har 3 faste cases (let/mellem/svær) + AI-genereret 'nyt sæt'.
+  Analysen skrives på formuleringstrappen: trin 1-3 pr. område, trin 4 i den
+  samlede konklusion. AI-kaldene går gennem /api/* og kræver login.
 */
 
 const ACCENT = "#6B2737";
@@ -130,6 +138,7 @@ const CASES = [
   {
     id: "let", navn: "Klar Webshop ApS", niveau: "Let", branche: "E-handel (B2C)",
     beskrivelse: "En lille, veldrevet webshop i fremgang. Tallene viser en tydelig og entydig udvikling — god til at træne den grundlæggende argumentation.",
+    forretningsmodel: "Klar Webshop køber mærkevarer og standardprodukter hjem og sælger dem videre til private gennem egen webshop. Indtjeningen skabes af en rimelig avance på et bredt sortiment kombineret med volumen: der er ingen butikker, kun lager, it og en webplatform, så anlægsaktiverne er små, og kapitalen sidder i varelager og likvider. En stor del af salget sker på faktura og delbetaling via en betalingsformidler, der først afregner med webshoppen efter en periode – derfor er der tilgodehavender, selvom kunderne er private. Kapacitetsomkostningerne er især løn, lagerleje og online markedsføring, og modellen står og falder med, at markedsføringskronerne bliver til trafik og salg, og at indkøbsaftalerne holder avancen oppe.",
     ledelsesberetning: `Regnskabsåret 2025 blev endnu et godt år for Klar Webshop ApS. Nettoomsætningen steg fra 12,0 til 15,0 mio. kr., svarende til en vækst på 25 %. Væksten er drevet af et udvidet sortiment og en målrettet investering i online markedsføring, der har øget både besøgstal og konverteringsrate.
 
 Bruttomarginen steg fra 40 % til 42 % som følge af bedre indkøbsaftaler med vores leverandører og en gunstig produktsammensætning. Sammen med en disciplineret styring af kapacitetsomkostningerne løftede det resultatet af primær drift med 50 % til 2,7 mio. kr.
@@ -219,6 +228,7 @@ Selskabets likviditet og soliditet er fortsat meget stærk, og den rentebærende
   {
     id: "mellem", navn: "Fjordby Møbler A/S", niveau: "Mellem", branche: "Møbeldesign (B2B + B2C)",
     beskrivelse: "En SMV i vækst, men med pres på lønsomhed og likviditet. Signalerne peger ikke alle samme vej — der skal vejes og nuanceres.",
+    forretningsmodel: "Fjordby Møbler designer og producerer egne møbler og sælger dem ad to veje: til møbelforhandlere og projektkunder på kredit (B2B), og fra 2025 direkte til private gennem egen webshop og showroom (B2C). Indtjeningen skal komme fra designet – mærket skal kunne bære en højere pris end standardmøbler – så bruttomarginen er modellens bærende nøgletal. Kapitalen er bundet i produktionsudstyr og showroom, i et lager af råvarer og færdige møbler og i tilgodehavender hos forhandlerne. En stor del af omkostningerne er faste (produktion, showroom, designere), så modellen er følsom over for et fald i marginen.",
     ledelsesberetning: `2025 var et år med solid vækst for Fjordby Møbler A/S. Nettoomsætningen steg 12,5 % til 54,0 mio. kr., båret af lanceringen af vores nye B2C-webshop og en udvidelse af showroomet, der har styrket mærket over for privatkunderne.
 
 For at sikre leveringsevnen i en periode med lange leveringstider hos vores leverandører har vi bevidst opbygget varelageret. Årets indtjening er påvirket af stigende priser på træ og metal, som vi af konkurrencehensyn kun delvist har kunnet sende videre til kunderne. Vi betragter marginpresset som midlertidigt og forventer, at de igangsatte effektiviseringer i indkøb og produktion slår igennem i 2026.
@@ -306,8 +316,9 @@ Ledelsen er overordnet tilfreds med årets udvikling og fastholder en ambitiøs 
     }
   },
   {
-    id: "svaer", navn: "NordVind Production A/S", niveau: "Svær", branche: "Industriel produktion (B2B)",
+    id: "svaer", navn: "NordVind Production A/S", niveau: "Svær", branche: "Industriel produktion (B2B)", skjulModel: true,
     beskrivelse: "En kapitaltung producent midt i en turnaround. Faldende omsætning, men stigende marginer — og modstridende signaler i gearing, soliditet og marked. Kræver en nuanceret vurdering.",
+    forretningsmodel: "NordVind Production er underleverandør og fremstiller industrikomponenter efter ordre til erhvervskunder, der køber på kredit. Forretningen er kapitaltung: fabrik og maskiner udgør hovedparten af aktiverne og er i høj grad finansieret med langfristet gæld. Historisk har indtjeningen kommet fra volumen – at holde maskinerne i gang med mange ordrer til lave marginer. Turnaround-strategien vil ændre det til færre og mere rentable ordrer. Det kræver, at marginen stiger nok til at opveje den lavere udnyttelse af et anlæg, hvis afskrivninger og renter ikke falder med omsætningen.",
     ledelsesberetning: `2025 markerer det første år i den turnaround, bestyrelsen iværksatte i 2024. Vi har bevidst nedprioriteret lavmargin-ordrer og koncentreret produktionen om de mest rentable kundesegmenter. Det forklarer faldet i nettoomsætningen fra 60,0 til 52,0 mio. kr. — et fald, vi betragter som planlagt og sundt.
 
 Strategien aflæses i indtjeningen: bruttomarginen er løftet fra 25 % til 28 %, og resultatet af primær drift er steget trods den lavere omsætning. Vi har samtidig nedbragt den langfristede gæld og styrket soliditeten, og afkastningsgraden overstiger nu igen selskabets gennemsnitlige låneomkostning.
@@ -396,14 +407,6 @@ Med en mere fokuseret forretning og en forbedret pengestrøm fra driften ser led
   },
 ];
 
-const OMR_NOEGLETAL = {
-  rentabilitet: ["Afkastningsgrad","Overskudsgrad","Aktivernes omsætningshastighed","Egenkapitalens forrentning","Fremmedkapitalens forrentning","Finansiel gearing"],
-  indtjeningsevne: ["Bruttomargin","Indekstal – omsætning (2024=100)","Indekstal – primært resultat (2024=100)","Driftsmæssig gearing","Kapacitetsgrad","Nulpunktsomsætning (1.000 kr.)","Sikkerhedsmargin"],
-  kapital: ["Anlægsaktivernes omsætningshastighed","Immaterielle anlægsaktivers oms.hastighed","Materielle omsætningshastighed","Varelagerets omsætningshastighed","Varedebitorernes oms.hastighed","Varekreditorernes oms.hastighed","Pengestrøm fra primær drift / omsætning"],
-  soliditet: ["Soliditetsgrad","Anlægsgrad","Kapitalbindingsgrad","Likviditetsgrad I (ekskl. varelager)","Likviditetsgrad II (inkl. varelager)"],
-  boers: ["Resultat pr. aktie","P/E-værdien","Indre værdi pr. aktie","Kurs/Indre værdi"],
-};
-
 const TIPS = {
   rentabilitet: [
     "Start med afkastningsgraden – sammenlign de to år og hold den op mod markedsrenten.",
@@ -471,6 +474,9 @@ function buildReportHTML(c, svar, fb, model, meta) {
   } else {
     secs += '<h2>Regnskab</h2><p style="color:#8a8270;font-style:italic">Detaljerede regnskabstal er ikke tilgængelige for AI-genererede sæt.</p>';
   }
+  if ((c.forretningsmodel || "").trim()) {
+    secs += "<h2>Forretningsmodellen</h2>" + par(c.forretningsmodel);
+  }
   if ((c.ledelsesberetning || "").trim()) {
     secs += "<h2>Ledelsesberetning (uddrag)</h2>" + par(c.ledelsesberetning);
   }
@@ -479,12 +485,15 @@ function buildReportHTML(c, svar, fb, model, meta) {
     const g = GRUPPER[k]; const key = c.id + ":" + k;
     secs += `<h3>${esc(g.navn)}</h3>`;
     secs += nogTabel(c.analyse[k].noegletal);
-    secs += `<h4>Analyse</h4>${par(svar[key])}`;
+    const sv = svar[key] || {};
+    TRIN.filter((t) => t.id !== "t4").forEach((t) => {
+      secs += `<h4>Trin ${t.nr} – ${esc(t.navn)}</h4>${par(sv[t.id])}`;
+    });
     if (fb[key]) secs += `<h4>Feedback</h4>${par(fb[key])}`;
     if (model[key]) secs += `<h4>Vejledende besvarelse</h4>${par(model[key])}`;
   });
   if ((meta.konklusion || "").trim() || (meta.konkFb || "").trim()) {
-    secs += "<h2>Samlet konklusion på tværs af de fem områder</h2>";
+    secs += "<h2>Trin 4 – Samlet konklusion og forretningsmodellen</h2>";
     secs += par(meta.konklusion);
     if ((meta.konkFb || "").trim()) secs += `<h4>Feedback på den samlede konklusion</h4>${par(meta.konkFb)}`;
   }
@@ -506,17 +515,8 @@ p{margin:4pt 0;}`;
     + ((meta.elevNavn || meta.hold) ? `<p class="sub">Udarbejdet af: <b>${esc(meta.elevNavn || "–")}</b>${meta.hold ? (" · hold: " + esc(meta.hold)) : ""}</p>` : "")
     + `<p class="sub">Udskrevet ${esc(dato)} · Erhvervsakademi Dania · Markedsføringsøkonom AK</p>`
     + secs
-    + `<p class="sub" style="margin-top:18pt;border-top:0.75pt solid #c9c0ae;padding-top:6pt;">Nøgletal og definitioner følger lærebogens Bilag 2. Feedback og vejledende besvarelser er udarbejdet med AI og er vejledende.</p>`
+    + `<p class="sub" style="margin-top:18pt;border-top:0.75pt solid #c9c0ae;padding-top:6pt;">Analysen er skrevet på formuleringstrappen: konstatering → forklaring → vurdering → kobling til forretningsmodellen. Nøgletal og definitioner følger lærebogens Bilag 2. Feedback og vejledende besvarelser er udarbejdet med AI og er vejledende.</p>`
     + `</body></html>`;
-}
-
-async function callClaude(prompt, maxTokens) {
-  const res = await fetch("/.netlify/functions/claude", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] }),
-  });
-  const d = await res.json();
-  return (d.content || []).filter((i) => i.type === "text").map((i) => i.text).join("\n").trim();
 }
 
 /* --------------------------- STYLES (Dania Design Guide) --------------------------- */
@@ -654,12 +654,59 @@ const Styles = () => (
       .dp-side { position: sticky; top: 14px; align-self: start; max-height: calc(100vh - 28px); overflow: auto; }
     }
     .dp-side-sliders { display: grid; gap: 11px; }
+    /* Formuleringstrappen */
+    .ra-trappehoved { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 6px; }
+    .ra-niveau { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--navy); }
+    .ra-trappeintro { font-size: 13.5px; color: var(--slate); line-height: 1.55; margin: 0 0 12px; }
+    .ra-trin { border: 1.5px solid var(--line); border-left: 4px solid var(--burgundy); border-radius: 0 10px 10px 0; background: #fff; padding: 14px 16px 16px; margin-bottom: 12px; }
+    .ra-trin4 { border-left-color: var(--gold); }
+    .ra-trin-hoved { display: flex; align-items: center; gap: 12px; }
+    .ra-trin-nr { flex: 0 0 30px; height: 30px; border-radius: 50%; background: var(--navy); color: var(--cream); display: inline-flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 800; font-size: 16px; }
+    .ra-trin4 .ra-trin-nr { background: var(--gold); }
+    .ra-trin-titel { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .ra-trin-titel b { font-family: 'Fraunces', serif; font-size: 17px; color: var(--navy); }
+    .ra-trin-titel span { font-size: 13.5px; color: var(--slate); }
+    .ra-trin-hjaelp { font-size: 13px; color: var(--slate); line-height: 1.5; margin: 8px 0 10px; }
+    .ra-ta-trin { min-height: 96px; }
+    .ra-maerke { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
+    .ra-maerke.naaet { background: var(--ok-bg); color: var(--ok); }
+    .ra-maerke.delvist { background: #FBF3DC; color: var(--gold); }
+    .ra-maerke.mangler { background: var(--err-bg); color: var(--err); }
+    .ra-paatvaers { font-size: 13.5px; color: var(--slate); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+    .ra-trappe { display: inline-flex; align-items: flex-end; gap: 2px; margin-left: 8px; vertical-align: -1px; }
+    .ra-trappe i { display: inline-block; width: 5px; border-radius: 1.5px; background: var(--line); }
+    .ra-trappe i.fuld { background: var(--ok); }
+    .ra-trappe i.halv { background: var(--gold); opacity: .7; }
+    .ra-chip.active .ra-trappe i { background: rgba(247,244,238,.35); }
+    .ra-chip.active .ra-trappe i.fuld { background: var(--cream); }
+    .ra-chip.active .ra-trappe i.halv { background: #E8C872; opacity: 1; }
+    .ra-fm { margin-top: 14px; border: 1.5px solid var(--line); border-left: 4px solid var(--navy); border-radius: 0 8px 8px 0; background: var(--neutral); padding: 12px 16px; }
+    .ra-fm h5 { font-family: 'Fraunces', serif; font-size: 16px; margin: 0 0 6px; color: var(--navy); }
+    .ra-fm p { font-size: 14px; line-height: 1.6; color: var(--ink); margin: 0 0 8px; }
+    .ra-fm p.note { font-size: 12.5px; font-style: italic; color: var(--slate); margin: 0 0 6px; }
+    .ra-trappeoversigt { display: grid; gap: 8px; }
+    .ra-trappetrin { display: flex; gap: 12px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; padding: 12px 14px; }
+    .ra-trappetrin b { font-family: 'Fraunces', serif; font-size: 17px; color: var(--navy); }
+    .ra-trappetrin .spm { font-size: 14px; color: var(--slate); }
+    .ra-trappetrin p { margin: 4px 0 0; font-size: 13.5px; color: var(--slate); line-height: 1.5; }
+    .ra-trappetrin:last-child .ra-trin-nr { background: var(--gold); }
+    .ra-trappenote { font-size: 13.5px; color: var(--slate); line-height: 1.6; margin: 14px 0 0; }
+    @media (max-width: 560px) { .ra-trappetrin { margin-left: 0 !important; } }
+    /* Login */
+    .ra-topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+    .ra-bruger { font-size: 13px; color: var(--slate); font-weight: 600; display: inline-flex; gap: 12px; align-items: center; }
+    .ra-login { max-width: 440px; margin-top: 30px; border: 1.5px solid var(--line); border-top: 3px solid var(--burgundy); border-radius: 10px; background: #fff; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+    .ra-login h2 { font-family: 'Fraunces', serif; font-size: 24px; margin: 0; color: var(--navy); }
+    .ra-login p { margin: 0; font-size: 14px; color: var(--slate); line-height: 1.55; }
+    .ra-login .ra-input { font-size: 18px; letter-spacing: .08em; }
+    .ra-login-underviser { font-size: 13px !important; } .ra-login-underviser a { color: var(--burgundy); font-weight: 700; }
+    .ra-login-note { font-size: 12.5px !important; font-style: italic; border-top: 1px solid var(--line); padding-top: 10px; }
   `}</style>
 );
 
 /* --------------------------- VIEWS ------------------------------ */
 
-function IntroView() {
+function IntroView({ visTrappen }) {
   return (
     <div className="ra-fade">
       <p className="ra-lead" style={{ marginTop: 0, marginBottom: 26 }}>
@@ -672,10 +719,30 @@ function IntroView() {
         <b>Sådan bruger du siden:</b> Lær nøgletallene i <b>Nøgletal</b> og test
         din forståelse af, hvad de siger noget om, og de fem områder i <b>Quiz</b>.
         I <b>Analyseopgave</b> vælger du en
-        virksomhed (let, mellem eller svær – eller få et helt nyt sæt tal),
-        skriver din analyse, får tips, live-feedback og en vejledende besvarelse
-        – og kan downloade det hele som en samlet Word-rapport.
+        virksomhed (let, mellem eller svær – eller få et helt nyt sæt tal) og
+        skriver din analyse op ad formuleringstrappen. Du får feedback på hvert
+        trin, tips og en vejledende besvarelse – og kan downloade det hele som
+        en samlet Word-rapport.
       </div>
+      <p className="ra-eyebrow" style={{ marginBottom: 14 }}>Formuleringstrappen</p>
+      <div className="ra-trappeoversigt">
+        {TRIN.map((t) => (
+          <div key={t.id} className="ra-trappetrin" style={{ marginLeft: `${(t.nr - 1) * 5}%` }}>
+            <span className="ra-trin-nr">{t.nr}</span>
+            <div>
+              <b>{t.navn}</b> <span className="spm">– {t.spoergsmaal}</span>
+              <p>{t.hjaelp}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="ra-trappenote">
+        Trin 1–3 skriver du for hvert af de fem analyseområder. Trin 4 hører til den
+        samlede konklusion, fordi koblingen til forretningsmodellen først kan laves,
+        når du har læst alle fem områder. Det er det trin, der viser, at du forstår
+        virksomheden – ikke kun tallene.{" "}
+        <button className="ra-link" onClick={visTrappen}>Se trappen forklaret med eksempler →</button>
+      </p>
       <p className="ra-eyebrow" style={{ marginBottom: 14 }}>De fem analyseområder</p>
       <div className="ra-grid ra-grid-2">
         {GRUPPE_NOEGLER.map((key, i) => {
@@ -752,14 +819,70 @@ function RegnskabTabel({ titel, rows }) {
   );
 }
 
-function AnalyseView() {
+/* --------------------------- FORMULERINGSTRAPPEN --------------------------- */
+
+const OMR_TRIN = TRIN.filter((t) => t.id !== "t4");
+const TRIN4 = TRIN.find((t) => t.id === "t4");
+const tomtSvar = () => ({ t1: "", t2: "", t3: "" });
+const harTekst = (sv) => !!sv && OMR_TRIN.some((t) => (sv[t.id] || "").trim().length > 0);
+
+function Maerke({ niveau }) {
+  if (!niveau) return null;
+  return <span className={"ra-maerke " + niveau}>{NIVEAUNAVN[niveau]}</span>;
+}
+
+// Tre små trin, der fyldes op nedefra. Vises på områdeknapperne, så den
+// studerende kan se, hvor langt de er nået på hvert område.
+function Trappe({ niveau, paaVej }) {
+  return (
+    <span className="ra-trappe" aria-label={`Nået til trin ${niveau} af 3`}>
+      {[1, 2, 3].map((n) => (
+        <i key={n} className={n <= niveau ? "fuld" : n === niveau + 1 && paaVej ? "halv" : ""} style={{ height: 4 + n * 3 }} />
+      ))}
+    </span>
+  );
+}
+
+function TrinFelt({ trin, vaerdi, onChange, vurdering, placeholder }) {
+  return (
+    <div className="ra-trin">
+      <div className="ra-trin-hoved">
+        <span className="ra-trin-nr">{trin.nr}</span>
+        <div className="ra-trin-titel">
+          <b>{trin.navn}</b>
+          <span>{trin.spoergsmaal}</span>
+        </div>
+        <Maerke niveau={vurdering} />
+      </div>
+      <p className="ra-trin-hjaelp">{trin.hjaelp}</p>
+      <textarea className="ra-ta ra-ta-trin" value={vaerdi} maxLength={MAKS_TRINTEGN}
+        onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+// Udkast gemmes i browseren, så en genindlæsning ikke sletter en halv
+// analyse. Det er en bekvemmelighed og ikke en aflevering: serveren gemmer
+// ikke teksterne, og browseren kan tømme lageret. Nøglen følger den
+// studerende, så to på samme computer ikke ser hinandens udkast.
+function udkastNoegle(bruger) { return `ra-udkast:${bruger?.hold || ""}:${bruger?.navn || ""}`; }
+function hentUdkast(bruger) {
+  try { return JSON.parse(localStorage.getItem(udkastNoegle(bruger)) || "null") || {}; } catch { return {}; }
+}
+function gemUdkast(bruger, data) {
+  try { localStorage.setItem(udkastNoegle(bruger), JSON.stringify(data)); } catch { /* privat vindue o.l. */ }
+}
+
+function AnalyseView({ bruger, visTrappen }) {
+  const udkast = useMemo(() => hentUdkast(bruger), [bruger]);
   const [caseId, setCaseId] = useState("let");
-  const [aiCase, setAiCase] = useState(null);
+  const [aiCase, setAiCase] = useState(udkast.aiCase || null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiErr, setAiErr] = useState("");
   const [omr, setOmr] = useState("rentabilitet");
-  const [svar, setSvar] = useState({});
+  const [svar, setSvar] = useState(udkast.svar || {});
   const [fb, setFb] = useState({});
+  const [vurd, setVurd] = useState({});
   const [model, setModel] = useState({});
   const [fbLoading, setFbLoading] = useState(false);
   const [fbErr, setFbErr] = useState("");
@@ -768,147 +891,131 @@ function AnalyseView() {
   const [visTips, setVisTips] = useState(false);
   const [visRegnskab, setVisRegnskab] = useState(false);
   const [visBeretning, setVisBeretning] = useState(false);
-  const [elevNavn, setElevNavn] = useState("");
-  const [hold, setHold] = useState("");
-  const [konklusion, setKonklusion] = useState({});
+  const [visModel, setVisModel] = useState({});
+  const [konklusion, setKonklusion] = useState(udkast.konklusion || {});
   const [konkFb, setKonkFb] = useState({});
+  const [konkVurd, setKonkVurd] = useState({});
   const [konkFbLoading, setKonkFbLoading] = useState(false);
   const [konkFbErr, setKonkFbErr] = useState("");
+
+  useEffect(() => { gemUdkast(bruger, { svar, konklusion, aiCase }); }, [bruger, svar, konklusion, aiCase]);
+
+  // Henter det, den studerende allerede har nået, så trinmærkerne står der
+  // igen efter en genindlæsning.
+  useEffect(() => {
+    api("GET", "/api/mine-trin").then((d) => {
+      const v = {}, k = {};
+      for (const t of d.trin) {
+        if (t.omr === "konklusion") k[t.caseId] = { trin: t.trin, bedste: t.bedste, paatvaers: t.paatvaers };
+        else v[t.caseId + ":" + t.omr] = { trin: t.trin, bedste: t.bedste };
+      }
+      setVurd(v); setKonkVurd(k);
+    }).catch(() => {});
+  }, []);
 
   const activeCase = caseId === "ai" ? aiCase : CASES.find((c) => c.id === caseId);
   const g = GRUPPER[omr];
   const areaData = activeCase ? activeCase.analyse[omr] : null;
   const key = caseId + ":" + omr;
-  const currentText = svar[key] || "";
-  const antalAnalyseret = GRUPPE_NOEGLER.filter((k) => (svar[caseId + ":" + k] || "").trim().length > 0).length;
+  const current = svar[key] || tomtSvar();
+  const currentVurd = vurd[key];
+  const niveauHer = currentVurd ? trinNiveau(currentVurd.bedste) : 0;
+  const antalAnalyseret = GRUPPE_NOEGLER.filter((k) => harTekst(svar[caseId + ":" + k])).length;
   const currentKonk = konklusion[caseId] || "";
   const currentKonkFb = konkFb[caseId] || "";
+  const currentKonkVurd = konkVurd[caseId];
+  const modelSkjult = activeCase && activeCase.skjulModel && !visModel[caseId];
 
-  function vaelgCase(id) { if (id === caseId) return; setCaseId(id); setFbErr(""); setModelErr(""); }
+  function vaelgCase(id) { if (id === caseId) return; setCaseId(id); setFbErr(""); setModelErr(""); setKonkFbErr(""); }
   function vaelgOmr(k) { if (k === omr) return; setOmr(k); setFbErr(""); setModelErr(""); }
+  function skrivTrin(id, tekst) { setSvar((s) => ({ ...s, [key]: { ...(s[key] || tomtSvar()), [id]: tekst } })); }
 
-  async function nytAiSaet() {
-    setAiLoading(true); setAiErr("");
-    const struktur = GRUPPE_NOEGLER.map((k) =>
-      `  "${k}": [\n` + OMR_NOEGLETAL[k].map((n) => `    {"n":"${n}","a":"<2024>","b":"<2025>","udv":"<kort udvikling>"}`).join(",\n") + `\n  ]`
-    ).join(",\n");
-    const prompt = `Opfind en realistisk dansk SMV og lav et sæt regnskabsnøgletal til en undervisningsøvelse i regnskabsanalyse. Returnér KUN gyldig JSON (ingen markdown-fences, ingen forklaring) i præcis denne struktur:
-{
- "navn": "<virksomhedsnavn A/S eller ApS>",
- "branche": "<kort branche>",
- "beskrivelse": "<1-2 sætninger om virksomhedens situation>",
- "ledelsesberetning": "<2-3 korte afsnit ledelsesberetning, adskilt med \\n\\n>",
- "analyse": {
-${struktur}
- }
-}
-Krav: 'a' = 2024, 'b' = 2025. Brug dansk talformat (komma som decimal, "%", "kr.", samt "(NN dage)" for omsætningshastigheder på lager/debitorer/kreditorer; indekstal har a="100"). Tallene skal være indbyrdes konsistente og fortælle ÉN sammenhængende historie på tværs af alle fem områder. Udfyld ALLE nøgletal i strukturen, og hold 'udv' kort (fx "↑ 2,0 pct.point" eller "↓ faldende"). Ledelsesberetningen skal være skrevet i ledelsens egen, lidt positive stemme og forklare udviklingen — men den må gerne fremhæve det positive og være lidt tilbageholdende med svaghederne (fx undlade at nævne svag likviditet), så de studerende kan øve sig i kritisk at holde beretningen op mod nøgletallene.`;
-    try {
-      let txt = await callClaude(prompt, 1500);
-      txt = txt.replace(/```json/gi, "").replace(/```/g, "").trim();
-      const obj = JSON.parse(txt);
-      if (!obj.analyse || !GRUPPE_NOEGLER.every((k) => Array.isArray(obj.analyse[k]))) throw new Error("format");
-      const norm = { id: "ai", navn: obj.navn || "AI-virksomhed", niveau: "AI", branche: obj.branche || "", beskrivelse: obj.beskrivelse || "", ledelsesberetning: obj.ledelsesberetning || "", analyse: {} };
-      GRUPPE_NOEGLER.forEach((k) => { norm.analyse[k] = { noegletal: obj.analyse[k] }; });
-      setAiCase(norm); setCaseId("ai"); setFbErr(""); setModelErr("");
-    } catch (e) {
-      setAiErr("Kunne ikke lave et nyt sæt lige nu. Prøv igen.");
-    } finally { setAiLoading(false); }
+  // Det, serveren skal vide om casen for at bygge prompten.
+  function kontekst() {
+    return {
+      caseId,
+      virksomhed: activeCase.navn,
+      branche: activeCase.branche || "",
+      forretningsmodel: activeCase.forretningsmodel || "",
+      beretning: (activeCase.ledelsesberetning || "").trim(),
+    };
   }
-
-  function noegletalTekst() { return areaData.noegletal.map((x) => `- ${x.n}: 2024 = ${x.a}, 2025 = ${x.b} (${x.udv})`).join("\n"); }
 
   function alleAnalyserTekst() {
     return GRUPPE_NOEGLER.map((k) => {
-      const t = (svar[caseId + ":" + k] || "").trim();
-      return `## ${GRUPPER[k].navn}\n${t || "(ikke skrevet endnu)"}`;
+      const sv = svar[caseId + ":" + k];
+      const tekst = harTekst(sv)
+        ? OMR_TRIN.map((t) => `Trin ${t.nr} – ${t.navn}: ${(sv[t.id] || "").trim() || "(ikke skrevet)"}`).join("\n")
+        : "(ikke skrevet endnu)";
+      return `## ${GRUPPER[k].navn}\n${tekst}`;
     }).join("\n\n");
   }
 
-  function beretningTekst() { return ((activeCase && activeCase.ledelsesberetning) || "").trim(); }
-  function beretningBlok() {
-    const b = beretningTekst();
-    return b ? `\n\nUddrag af ledelsesberetningen (ledelsens egen forklaring på udviklingen):\n"""\n${b}\n"""` : "";
+  async function nytAiSaet() {
+    setAiLoading(true); setAiErr("");
+    try {
+      const { saet } = await api("POST", "/api/nyt-saet", {});
+      setAiCase(saet); setCaseId("ai"); setFbErr(""); setModelErr("");
+      // Et nyt sæt er en ny virksomhed. Svar og vurderinger fra det forrige
+      // AI-sæt hører ikke til det nye og ryddes.
+      const ryd = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith("ai:")));
+      setSvar(ryd); setFb(ryd); setVurd(ryd); setModel(ryd);
+      setKonklusion((k) => ({ ...k, ai: "" })); setKonkFb((k) => ({ ...k, ai: "" })); setKonkVurd((k) => ({ ...k, ai: undefined }));
+    } catch (e) {
+      setAiErr(e.message);
+    } finally { setAiLoading(false); }
   }
 
   async function faaFeedback() {
     if (!areaData) return;
-    if (currentText.trim().length < 40) { setFbErr("Skriv lidt mere først – mindst et par sætninger – så kan du få brugbar feedback."); return; }
+    const samlet = OMR_TRIN.map((t) => current[t.id] || "").join("").trim().length;
+    if (samlet < 40) { setFbErr("Skriv lidt mere først – mindst et par sætninger – så kan du få brugbar feedback."); return; }
     setFbErr(""); setFbLoading(true);
-    const prompt = `Du er en erfaren og venlig underviser i regnskabsanalyse på markedsføringsøkonomuddannelsen. En studerende analyserer analyseområdet "${g.navn}" for virksomheden ${activeCase.navn} ud fra disse nøgletal (2024 → 2025):
-
-${noegletalTekst()}${beretningBlok()}
-
-Den studerendes tekst:
-"""
-${currentText.trim()}
-"""
-
-Giv kort, konkret og formativ feedback på dansk. Ingen karakter. Brug korte afsnit med disse overskrifter:
-Det fungerer godt:
-Det kan styrkes:
-Faglige fejl eller unøjagtigheder: (skriv kun hvis der er nogen)
-Ledelsens forklaring: (kun hvis der er vedlagt en ledelsesberetning ovenfor — vurder, om den studerende kobler beretningens forklaring til tallene eller forholder sig kritisk til den, fx hvad beretningen fremhæver eller undlader at nævne)
-Næste skridt: (ét konkret forslag)
-
-Henvis til de konkrete nøgletal og tal, ros det rigtige, og vær specifik. Maks ca. 220 ord.`;
-    try { const txt = await callClaude(prompt, 1000); if (txt) setFb((f) => ({ ...f, [key]: txt })); else setFbErr("Der kom ikke noget svar. Prøv igen om et øjeblik."); }
-    catch (e) { setFbErr("Kunne ikke hente feedback lige nu. Tjek internetforbindelsen og prøv igen."); }
-    finally { setFbLoading(false); }
+    try {
+      const d = await api("POST", "/api/feedback", { ...kontekst(), omr, noegletal: areaData.noegletal, trin: current });
+      setFb((f) => ({ ...f, [key]: d.feedback }));
+      if (d.trin) setVurd((v) => ({ ...v, [key]: { trin: d.trin, bedste: d.bedste || d.trin } }));
+    } catch (e) {
+      setFbErr(e.message);
+    } finally { setFbLoading(false); }
   }
 
   async function visVejledende() {
     if (!areaData) return;
     if (model[key]) { setModel((m) => { const n = { ...m }; delete n[key]; return n; }); return; }
     setModelErr(""); setModelLoading(true);
-    const prompt = `Skriv en kort, eksemplarisk vejledende besvarelse på dansk (ca. 150 ord) for analyseområdet "${g.navn}" for virksomheden ${activeCase.navn}, ud fra disse nøgletal (2024 → 2025):
-
-${noegletalTekst()}${beretningBlok()}
-
-Skriv som en dygtig studerende: brug de konkrete tal, sammenlign de to år, forklar årsagerne til udviklingen, og slut med en samlet vurdering. Hvis der indgår en ledelsesberetning, så inddrag kort, hvor nøgletallene be- eller afkræfter ledelsens forklaring. Sammenhængende prosa uden overskrifter.`;
-    try { const txt = await callClaude(prompt, 700); if (txt) setModel((m) => ({ ...m, [key]: txt })); else setModelErr("Kunne ikke hente en besvarelse. Prøv igen."); }
-    catch (e) { setModelErr("Kunne ikke hente en besvarelse lige nu. Prøv igen."); }
-    finally { setModelLoading(false); }
+    try {
+      const d = await api("POST", "/api/vejledende", { ...kontekst(), omr, noegletal: areaData.noegletal });
+      setModel((m) => ({ ...m, [key]: d.tekst }));
+    } catch (e) {
+      setModelErr(e.message);
+    } finally { setModelLoading(false); }
   }
 
   async function faaKonkFeedback() {
     if (!activeCase) return;
     if (currentKonk.trim().length < 40) { setKonkFbErr("Skriv lidt mere på den samlede konklusion først – mindst et par sætninger."); return; }
     setKonkFbErr(""); setKonkFbLoading(true);
-    const prompt = `Du er en erfaren og venlig underviser i regnskabsanalyse på markedsføringsøkonomuddannelsen. En studerende har analyseret de fem områder for virksomheden ${activeCase.navn} og skal nu skrive en SAMLET KONKLUSION på tværs af områderne.
-
-Den studerendes analyser pr. område:
-${alleAnalyserTekst()}${beretningBlok()}
-
-Den studerendes samlede konklusion:
-"""
-${currentKonk.trim()}
-"""
-
-Giv kort, konkret og formativ feedback på dansk. Ingen karakter. Vurdér især, om konklusionen binder de fem områder sammen til ÉT samlet billede, om den bygger på de konkrete tal, og om den ender i en klar vurdering og anbefaling. Brug korte afsnit med disse overskrifter:
-Det fungerer godt:
-Det kan styrkes:
-Hænger det sammen på tværs: (peg på modsætninger eller manglende sammenhæng mellem områderne, hvis nogen)
-Ledelsens forklaring: (kun hvis der er vedlagt en ledelsesberetning ovenfor — vurder, om den studerende kritisk holder ledelsens fortælling op mod nøgletallene)
-Næste skridt: (ét konkret forslag)
-
-Maks ca. 220 ord.`;
-    try { const txt = await callClaude(prompt, 1000); if (txt) setKonkFb((f) => ({ ...f, [caseId]: txt })); else setKonkFbErr("Der kom ikke noget svar. Prøv igen om et øjeblik."); }
-    catch (e) { setKonkFbErr("Kunne ikke hente feedback lige nu. Tjek internetforbindelsen og prøv igen."); }
-    finally { setKonkFbLoading(false); }
+    try {
+      const d = await api("POST", "/api/konklusion", { ...kontekst(), omraadetekster: alleAnalyserTekst(), konklusion: currentKonk });
+      setKonkFb((f) => ({ ...f, [caseId]: d.feedback }));
+      if (d.trin) setKonkVurd((k) => ({ ...k, [caseId]: { trin: d.trin, bedste: d.bedste || d.trin, paatvaers: d.paatvaers } }));
+    } catch (e) {
+      setKonkFbErr(e.message);
+    } finally { setKonkFbLoading(false); }
   }
 
   function downloadRapport() {
     if (!activeCase) return;
-    const html = buildReportHTML(activeCase, svar, fb, model, { elevNavn, hold, konklusion: currentKonk, konkFb: currentKonkFb });
-    const blob = new Blob(["\ufeff" + html], { type: "application/msword" });
+    const html = buildReportHTML(activeCase, svar, fb, model, { elevNavn: bruger?.navn, hold: bruger?.hold, konklusion: currentKonk, konkFb: currentKonkFb });
+    const blob = new Blob(["﻿" + html], { type: "application/msword" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const navn = activeCase.navn.replace(/[\/\\:*?"<>|]/g, "").trim();
-    const filnavn = (elevNavn.trim() ? elevNavn.trim().replace(/[\/\\:*?"<>|]/g, "") + " - " : "") + navn + " - regnskabsanalyse.doc";
-    a.href = url; a.download = filnavn;
+    const rens = (t) => String(t || "").replace(/[\/\\:*?"<>|]/g, "").trim();
+    a.href = url; a.download = (bruger?.navn ? rens(bruger.navn) + " - " : "") + rens(activeCase.navn) + " - regnskabsanalyse.doc";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    noter("rapport", caseId);
   }
 
   return (
@@ -937,6 +1044,29 @@ Maks ca. 220 ord.`;
             <span className="branche">· {activeCase.branche}</span>
           </div>
           <p>{activeCase.beskrivelse}</p>
+
+          {activeCase.forretningsmodel && (
+            <div className="ra-fm">
+              <h5>Forretningsmodellen</h5>
+              {modelSkjult ? (
+                <>
+                  <p className="note">
+                    Prøv først selv – som i Sprint 2: Hvilken forretningsmodel peger tallene på? Kig på
+                    bruttomargin, aktivernes omsætningshastighed, anlægsgrad og debitordage, før du ser beskrivelsen.
+                  </p>
+                  <button className="ra-link" onClick={() => { setVisModel((m) => ({ ...m, [caseId]: true })); noter("model-vist", caseId); }}>
+                    Vis forretningsmodellen ▼
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p>{activeCase.forretningsmodel}</p>
+                  <p className="note">Modellen kan være din målestok på trin 3 (hvad er normalt for sådan en virksomhed?) – og den er hele pointen på trin 4 i den samlede konklusion.</p>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="ra-actions">
             {activeCase.regnskab && (
               <button className="ra-link" onClick={() => setVisRegnskab((v) => !v)}>
@@ -969,9 +1099,15 @@ Maks ca. 220 ord.`;
 
       <p className="ra-eyebrow" style={{ marginBottom: 12 }}>Vælg analyseområde</p>
       <div className="ra-chips">
-        {GRUPPE_NOEGLER.map((k) => (
-          <button key={k} className={"ra-chip" + (omr === k ? " active" : "")} onClick={() => vaelgOmr(k)}>{GRUPPER[k].navn}</button>
-        ))}
+        {GRUPPE_NOEGLER.map((k) => {
+          const v = vurd[caseId + ":" + k];
+          return (
+            <button key={k} className={"ra-chip" + (omr === k ? " active" : "")} onClick={() => vaelgOmr(k)}>
+              {GRUPPER[k].navn}
+              {v && <Trappe niveau={trinNiveau(v.bedste)} paaVej={paaVej(v.bedste)} />}
+            </button>
+          );
+        })}
       </div>
 
       {areaData && (
@@ -986,15 +1122,32 @@ Maks ca. 220 ord.`;
         </div>
       )}
 
-      <p className="ra-eyebrow" style={{ marginBottom: 8 }}>Din analyse og argumentation</p>
-      <textarea className="ra-ta" value={currentText} onChange={(e) => setSvar((s) => ({ ...s, [key]: e.target.value }))}
-        placeholder={activeCase ? `Skriv din analyse af ${g.navn.toLowerCase()} for ${activeCase.navn}. Brug de konkrete nøgletal, sammenlign de to år, forklar årsagerne – og slut med en samlet vurdering.` : ""} />
+      <div className="ra-trappehoved">
+        <p className="ra-eyebrow" style={{ margin: 0 }}>Din analyse – trin for trin</p>
+        {currentVurd && (
+          <span className="ra-niveau">
+            <Trappe niveau={niveauHer} paaVej={paaVej(currentVurd.bedste)} />
+            {niveauHer === 3 ? "Alle tre trin nået på dette område" : `Nået til trin ${niveauHer} af 3`}
+          </span>
+        )}
+      </div>
+      <p className="ra-trappeintro">
+        Skriv dig op ad trappen. Hvert trin vurderes for sig: en konstatering skal ikke forklare,
+        og en forklaring skal ikke vurdere – det er næste trins opgave.{" "}
+        <button className="ra-link" onClick={visTrappen}>Se trappen forklaret →</button>
+      </p>
+
+      {OMR_TRIN.map((t) => (
+        <TrinFelt key={t.id} trin={t} vaerdi={current[t.id] || ""} onChange={(v) => skrivTrin(t.id, v)}
+          vurdering={currentVurd?.trin?.[t.id]}
+          placeholder={activeCase ? `${t.spoergsmaal} – ${g.navn.toLowerCase()} for ${activeCase.navn}` : ""} />
+      ))}
 
       <div className="ra-btnrow">
         <button className="ra-btn" onClick={faaFeedback} disabled={fbLoading || !areaData}>
-          {fbLoading ? <><span className="ra-spinner" />Henter feedback…</> : "Få feedback"}
+          {fbLoading ? <><span className="ra-spinner" />Henter feedback…</> : "Få feedback på trinnene"}
         </button>
-        <button className="ra-btn sec" onClick={() => setVisTips((v) => !v)}>{visTips ? "Skjul tips" : "Tips"}</button>
+        <button className="ra-btn sec" onClick={() => { if (!visTips) noter("tips", omr); setVisTips((v) => !v); }}>{visTips ? "Skjul tips" : "Tips"}</button>
         <button className="ra-btn sec" onClick={visVejledende} disabled={modelLoading || !areaData}>
           {modelLoading ? <><span className="ra-spinner dark" />Henter…</> : (model[key] ? "Skjul vejledende besvarelse" : "Vejledende besvarelse")}
         </button>
@@ -1010,29 +1163,38 @@ Maks ca. 220 ord.`;
         </div>
       )}
 
-      {fb[key] && (<div className="ra-fbbox"><h5>Feedback på din tekst</h5>{fb[key]}</div>)}
+      {fb[key] && (<div className="ra-fbbox"><h5>Feedback på dine trin</h5>{fb[key]}</div>)}
 
       {model[key] && (
         <div className="ra-modelbox">
           <h5>Vejledende besvarelse</h5>
           {model[key]}
           <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--slate)", fontStyle: "italic", whiteSpace: "normal" }}>
-            Eksempel på en god besvarelse – ikke et facit. Sammenlign med din egen og se, hvad du kan tilføje.
+            Eksempel på en god besvarelse – ikke et facit. Sammenlign trin for trin med din egen og se, hvad du kan tilføje.
           </div>
         </div>
       )}
 
       <div style={{ marginTop: 30, paddingTop: 18, borderTop: "1.5px solid var(--line)" }}>
-        <p className="ra-eyebrow" style={{ marginBottom: 8 }}>Samlet konklusion på tværs</p>
-        <p style={{ fontSize: 14, color: "var(--slate)", lineHeight: 1.6, margin: "0 0 12px" }}>
-          Når du har analyseret de fem områder, så saml dem til ét billede: Hvad fortæller
-          rentabilitet, indtjeningsevne, kapitaltilpasning, soliditet/likviditet og de
-          børsrelaterede nøgletal <i>tilsammen</i>? Forhold dig til ledelsens forklaring –
-          holder den, når du ser på tallene? – og slut med en klar vurdering og en anbefaling.
-        </p>
-        <textarea className="ra-ta ra-konk" value={currentKonk}
-          onChange={(e) => setKonklusion((s) => ({ ...s, [caseId]: e.target.value }))}
-          placeholder={activeCase ? `Skriv din samlede konklusion for ${activeCase.navn} på tværs af de fem analyseområder.` : "Vælg et datasæt ovenfor først."} />
+        <div className="ra-trin ra-trin4">
+          <div className="ra-trin-hoved">
+            <span className="ra-trin-nr">{TRIN4.nr}</span>
+            <div className="ra-trin-titel">
+              <b>{TRIN4.navn} – samlet konklusion</b>
+              <span>{TRIN4.spoergsmaal}</span>
+            </div>
+            <Maerke niveau={currentKonkVurd?.trin?.t4} />
+          </div>
+          <p className="ra-trin-hjaelp">
+            {TRIN4.hjaelp} Forhold dig også til ledelsens forklaring – holder den, når du ser på tallene?
+          </p>
+          <textarea className="ra-ta ra-konk" value={currentKonk} maxLength={MAKS_KONKLUSIONSTEGN}
+            onChange={(e) => setKonklusion((s) => ({ ...s, [caseId]: e.target.value }))}
+            placeholder={activeCase ? `Bind de fem områder sammen for ${activeCase.navn}, og hold dem op mod forretningsmodellen.` : "Vælg et datasæt ovenfor først."} />
+        </div>
+        {currentKonkVurd?.paatvaers && (
+          <p className="ra-paatvaers">Hænger det sammen på tværs: <Maerke niveau={currentKonkVurd.paatvaers} /></p>
+        )}
         <div className="ra-btnrow">
           <button className="ra-btn" onClick={faaKonkFeedback} disabled={konkFbLoading || !activeCase}>
             {konkFbLoading ? <><span className="ra-spinner" />Henter feedback…</> : "Få feedback på konklusionen"}
@@ -1044,25 +1206,12 @@ Maks ca. 220 ord.`;
 
       <div style={{ marginTop: 30, paddingTop: 18, borderTop: "1.5px solid var(--line)" }}>
         <p className="ra-eyebrow" style={{ marginBottom: 10 }}>Samlet rapport</p>
-        <div className="ra-idrow">
-          <div className="ra-field">
-            <label>Navn (valgfrit)</label>
-            <input className="ra-input" value={elevNavn} onChange={(e) => setElevNavn(e.target.value)} placeholder="Dit navn" />
-          </div>
-          <div className="ra-field">
-            <label>Hold (valgfrit)</label>
-            <input className="ra-input" value={hold} onChange={(e) => setHold(e.target.value)} placeholder="Fx MØK24" />
-          </div>
-        </div>
         <p style={{ fontSize: 14, color: "var(--slate)", lineHeight: 1.6, margin: 0 }}>
-          Rapporten samler virksomhedens regnskab, ledelsesberetningen, nøgletallene for
-          alle fem analyseområder og de analyser, du har skrevet – samt din samlede
-          konklusion og den feedback og de vejledende besvarelser, du har hentet – i ét
-          Word-dokument.
-          {" "}<b>Knappen bruges, når du har skrevet din analyse for alle fem
-          områder</b>, så rapporten er fuldstændig og klar til aflevering eller til
-          dit læringsresumé. Du kan godt downloade undervejs, men områder, du endnu
-          ikke har analyseret, vil stå som tomme i dokumentet.
+          Rapporten samler virksomhedens regnskab, forretningsmodel, ledelsesberetning, nøgletallene
+          for alle fem områder og dine trin – samt din samlede konklusion og den feedback og de
+          vejledende besvarelser, du har hentet – i ét Word-dokument.{" "}
+          <b>Brug knappen, når du har skrevet alle fem områder</b>, så rapporten er klar til
+          aflevering eller dit læringsresumé.
         </p>
         <p style={{ fontSize: 13.5, color: "var(--slate)", margin: "10px 0 4px" }}>
           Analyseret for {activeCase ? activeCase.navn : "denne virksomhed"}:{" "}
@@ -1359,7 +1508,11 @@ function QuizView() {
   const [faerdig, setFaerdig] = useState(false);
   const aktuel = spm[idx];
   function svar(v, i) { if (valg !== null) return; setValg(i); if (v.rigtig) setScore((s) => s + 1); }
-  function naeste() { setValg(null); if (idx + 1 >= spm.length) setFaerdig(true); else setIdx((i) => i + 1); }
+  function naeste() {
+    setValg(null);
+    if (idx + 1 >= spm.length) { setFaerdig(true); noter("quiz-faerdig", `${score}/${spm.length}`); }
+    else setIdx((i) => i + 1);
+  }
   function genstart() { setSpm(lavSpoergsmaal()); setIdx(0); setValg(null); setScore(0); setFaerdig(false); }
   if (faerdig) {
     const pct = Math.round((score / spm.length) * 100);
@@ -1403,39 +1556,114 @@ function QuizView() {
 
 const TABS = [
   { id: "intro", label: "Sådan virker det" },
+  { id: "trappen", label: "Formuleringstrappen" },
   { id: "ref", label: "Nøgletal" },
   { id: "dupont", label: "DuPont" },
   { id: "analyse", label: "Analyseopgave" },
   { id: "quiz", label: "Quiz" },
 ];
 
+function LoginView({ onLogin }) {
+  const [kode, setKode] = useState("");
+  const [fejl, setFejl] = useState("");
+  const [venter, setVenter] = useState(false);
+
+  async function logInd(e) {
+    e.preventDefault();
+    if (!kode.trim()) { setFejl("Skriv din adgangskode."); return; }
+    setVenter(true); setFejl("");
+    try {
+      const svar = await api("POST", "/api/login", { kode });
+      if (svar.underviser) { window.location.href = "/underviser"; return; }
+      onLogin(await api("GET", "/api/mig"));
+    } catch (err) {
+      setFejl(err.message);
+    } finally { setVenter(false); }
+  }
+
+  return (
+    <form className="ra-login ra-fade" onSubmit={logInd}>
+      <h2>Log ind</h2>
+      <p>Brug den kode, du har fået af din underviser. Den ser sådan ud: <span className="ra-mono">abcd-2345</span>.</p>
+      <input className="ra-input ra-mono" value={kode} onChange={(e) => setKode(e.target.value)}
+        placeholder="xxxx-xxxx" autoComplete="off" autoCapitalize="off" spellCheck={false} autoFocus />
+      <button className="ra-btn" type="submit" disabled={venter}>
+        {venter ? <><span className="ra-spinner" />Logger ind…</> : "Log ind"}
+      </button>
+      {fejl && <div className="ra-err">{fejl}</div>}
+      <p className="ra-login-underviser">Underviser? <a href="/underviser">Log ind på underviserens side →</a></p>
+      <p className="ra-login-note">
+        Din underviser kan se, hvor aktiv du er, og hvor langt op ad formuleringstrappen
+        du er nået på hvert område – men ikke det, du skriver. Teksterne bruges kun til
+        at give dig feedback og gemmes ikke.
+      </p>
+    </form>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState("intro");
+  // undefined = vi ved det ikke endnu, null = ikke logget ind.
+  const [bruger, setBruger] = useState(undefined);
+  const [sete, setSete] = useState(() => new Set());
+
+  useEffect(() => {
+    api("GET", "/api/mig").then(setBruger).catch(() => setBruger(null));
+  }, []);
+
+  // Hver fane noteres første gang i et besøg – ikke ved hvert klik – så
+  // underviseren kan se, om Nøgletal og DuPont bliver brugt.
+  function skiftFane(id) {
+    setTab(id);
+    if (!sete.has(id)) { setSete((s) => new Set(s).add(id)); noter("fane", id); }
+  }
+
+  async function logUd() {
+    await api("POST", "/api/logud").catch(() => {});
+    setBruger(null); setTab("intro"); setSete(new Set());
+  }
+
   return (
     <div className="ra-root">
       <Styles />
       <div className="ra-wrap">
         <header>
-          <p className="ra-eyebrow">Erhvervsakademi Dania · Markedsføringsøkonom AK · Forløb 2</p>
+          <div className="ra-topbar">
+            <p className="ra-eyebrow">Erhvervsakademi Dania · Markedsføringsøkonom AK · Forløb 2</p>
+            {bruger && (
+              <span className="ra-bruger">
+                {bruger.navn}{bruger.hold ? ` · ${bruger.hold}` : ""}
+                <button className="ra-link" onClick={logUd}>Log ud</button>
+              </span>
+            )}
+          </div>
           <h1 className="ra-h1">Regnskabsanalyse</h1>
           <p className="ra-lead">
             Et læringsværktøj til regnskabsanalyse. AI klarer beregningen – du
             lærer de 28 nøgletal, forstår de fem analyseområder og træner at
-            argumentere ud fra rigtige virksomheders tal.
+            argumentere dig op ad formuleringstrappen, fra konstatering til
+            forretningsmodel.
           </p>
         </header>
-        <nav className="ra-tabs">
-          {TABS.map((t) => (<button key={t.id} className={"ra-tab" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>{t.label}</button>))}
-        </nav>
-        <main key={tab}>
-          {tab === "intro" && <IntroView />}
-          {tab === "ref" && <ReferenceView />}
-          {tab === "dupont" && <DuPontView />}
-          {tab === "analyse" && <AnalyseView />}
-          {tab === "quiz" && <QuizView />}
-        </main>
+        {bruger === undefined && <p className="ra-sub" style={{ marginTop: 30 }}><span className="ra-spinner dark" />Henter…</p>}
+        {bruger === null && <LoginView onLogin={setBruger} />}
+        {bruger && (
+          <>
+            <nav className="ra-tabs">
+              {TABS.map((t) => (<button key={t.id} className={"ra-tab" + (tab === t.id ? " active" : "")} onClick={() => skiftFane(t.id)}>{t.label}</button>))}
+            </nav>
+            <main key={tab}>
+              {tab === "intro" && <IntroView visTrappen={() => skiftFane("trappen")} />}
+              {tab === "trappen" && <TrappenView tilAnalyse={() => skiftFane("analyse")} />}
+              {tab === "ref" && <ReferenceView />}
+              {tab === "dupont" && <DuPontView />}
+              {tab === "analyse" && <AnalyseView bruger={bruger} visTrappen={() => skiftFane("trappen")} />}
+              {tab === "quiz" && <QuizView />}
+            </main>
+          </>
+        )}
         <footer className="ra-footer">
-          28 nøgletal · 5 analyseområder · 3 cases (let/mellem/svær) + AI-genereret sæt. Nøgletal følger lærebogens Bilag 2. Feedback og vejledende besvarelser laves af Claude og er vejledende.
+          28 nøgletal · 5 analyseområder · formuleringstrappen i fire trin · 3 cases (let/mellem/svær) + AI-genereret sæt. Nøgletal følger lærebogens Bilag 2. Feedback og vejledende besvarelser laves af Claude og er vejledende.
         </footer>
       </div>
     </div>

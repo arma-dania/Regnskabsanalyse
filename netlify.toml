@@ -1,7 +1,30 @@
 [build]
-  command = "npm run build"
+  # Prøverne kører før hvert deploy og stopper det, hvis login, lagring eller
+  # trappens logik er gået i stykker. De kører mod et lager i hukommelsen og
+  # en attrap i stedet for Claude, så de hverken rører rigtige data eller
+  # bruger af API-nøglen.
+  command = "npm run proeve && npm run build"
   publish = "dist"
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20"
+  # Prøveserveren bytter Blobs og Anthropic ud med module.registerHooks,
+  # som kræver Node 22.
+  NODE_VERSION = "22"
+
+# Underviserens side. Den findes også som /underviser.html.
+[[redirects]]
+  from = "/underviser"
+  to = "/underviser.html"
+  status = 200
+
+# API'et ligger i netlify/functions og rammes på /api/* og /admin-api/*.
+# De delte filer ligger i lib/ og ikke ved siden af api.mjs og admin.mjs,
+# fordi hver fil i selve functions-mappen bliver til sit eget endepunkt.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "same-origin"
