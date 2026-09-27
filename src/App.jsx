@@ -557,8 +557,8 @@ const Styles = () => (
     .ra-tag { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cream); background: var(--burgundy); padding: 4px 9px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
     .ra-card-head h4 { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; margin: 0; line-height: 1.2; color: var(--navy); }
     .ra-card-head .kort { font-size: 13px; color: var(--slate); font-weight: 600; }
-    .ra-plus { margin-left: auto; flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--burgundy); color: var(--cream); display: inline-flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 700; line-height: 1; transition: background .15s, transform .15s; }
-    .ra-card-head:hover .ra-plus { background: var(--navy); }
+    .ra-plus { margin-left: auto; flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: var(--cream); display: inline-flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 700; line-height: 1; transition: background .15s; }
+    .ra-card-head:hover .ra-plus { background: var(--slate); }
     .ra-formel { font-family: 'Spline Sans Mono', monospace; font-size: 13.5px; background: var(--neutral); border: 1px solid var(--line); border-radius: 7px; padding: 11px 13px; margin: 0 18px 4px; color: var(--navy); line-height: 1.5; }
     .ra-body { padding: 4px 18px 18px; }
     .ra-row { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.5; }
