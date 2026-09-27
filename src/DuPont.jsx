@@ -128,6 +128,237 @@ function Skyder({ k, label, v, saet, min, max, step }) {
   );
 }
 
+/* ---------------- Pyramiden fortsætter: EKF ---------------- */
+
+// Grafen: EKF som funktion af gearingen. Linjen er ret, og dens hældning ER
+// rentemarginalen – det er hele pointen, så den skal kunne ses.
+function GearingGraf({ AG, r, gearing }) {
+  const [hover, setHover] = useState(null);
+  const GW = 760, GH = 280, PL = 50, PR = 96, PT = 16, PB = 44;
+  const xMax = Math.max(3, Math.ceil(gearing + 0.5));
+  const ekf = g => AG + (AG - r) * g;
+  const ys = [ekf(0), ekf(xMax), AG, 0];
+  // Pæne trin på y-aksen (1, 2, 5, 10, 20 …), så aksen er let at læse.
+  const spaend = Math.max(Math.max(...ys) - Math.min(...ys), 5);
+  const trin = [1, 2, 5, 10, 20, 50, 100].find(t => spaend / t <= 6) ?? 100;
+  const yMin = Math.floor(Math.min(...ys) / trin) * trin, yMax = Math.ceil(Math.max(...ys) / trin) * trin;
+  const X = g => PL + (g / xMax) * (GW - PL - PR);
+  const Y = y => PT + (1 - (y - yMin) / (yMax - yMin)) * (GH - PT - PB);
+  const yTicks = [];
+  for (let t = yMin; t <= yMax + 1e-9; t += trin) yTicks.push(t);
+  const xTicks = Array.from({ length: xMax + 1 }, (_, i) => i);
+
+  function flyt(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const gx = ((e.clientX - rect.left) / rect.width) * GW;
+    const g = Math.min(xMax, Math.max(0, ((gx - PL) / (GW - PL - PR)) * xMax));
+    setHover(Math.round(g * 10) / 10);
+  }
+
+  const farve = AG > r ? "var(--ok)" : AG < r ? "var(--err)" : "var(--slate)";
+  return (
+    <figure className="pd-graf">
+      <svg viewBox={`0 0 ${GW} ${GH}`} role="img"
+        aria-label={`EKF stiger med ${f1(AG - r)} procentpoint for hver enhed gearing`}
+        onMouseMove={flyt} onMouseLeave={() => setHover(null)}>
+        {yTicks.map(t => (
+          <g key={t}>
+            <line x1={PL} x2={GW - PR} y1={Y(t)} y2={Y(t)} className="gitter" />
+            <text x={PL - 8} y={Y(t) + 4} textAnchor="end" className="akse">{Math.round(t)} %</text>
+          </g>
+        ))}
+        {xTicks.map(t => <text key={t} x={X(t)} y={GH - PB + 18} textAnchor="middle" className="akse">{t}</text>)}
+        <text x={(PL + GW - PR) / 2} y={GH - 6} textAnchor="middle" className="aksetitel">Gearing (gæld pr. krone egenkapital)</text>
+
+        <line x1={X(0)} x2={X(xMax)} y1={Y(AG)} y2={Y(AG)} className="ag-linje" />
+        <text x={X(xMax) + 6} y={Y(AG) + 4} className="etiket">AG {f1(AG)} %</text>
+
+        <line x1={X(0)} x2={X(xMax)} y1={Y(ekf(0))} y2={Y(ekf(xMax))} className="ekf-linje" />
+        <text x={X(xMax) + 6} y={Y(ekf(xMax)) + 4} className="etiket stærk">EKF</text>
+
+        <circle cx={X(gearing)} cy={Y(ekf(gearing))} r={6} className="punkt" />
+        {hover !== null && (
+          <g>
+            <line x1={X(hover)} x2={X(hover)} y1={PT} y2={GH - PB} className="sigte" />
+            <circle cx={X(hover)} cy={Y(ekf(hover))} r={4} className="sigtepunkt" />
+          </g>
+        )}
+      </svg>
+      <div className="pd-graf-tip">
+        {hover !== null
+          ? <>Ved gearing <b>{f1(hover)}</b> bliver EKF <b>{f1(ekf(hover))} %</b></>
+          : <>Nu: gearing <b>{f2(gearing)}</b> giver EKF <b>{f1(ekf(gearing))} %</b> · før musen hen over grafen</>}
+      </div>
+      <figcaption>
+        Linjen starter i afkastningsgraden (ingen gæld) og hælder med rentemarginalen:{" "}
+        <b style={{ color: farve }}>{AG >= r ? "+" : "−"}{f1(Math.abs(AG - r))} procentpoint</b> EKF for hver ekstra
+        krone gæld pr. krone egenkapital. {AG > r ? "Den stiger – gearingen løfter." : AG < r ? "Den falder – gearingen trækker ned." : "Den er flad – gearingen gør ingen forskel."}
+      </figcaption>
+    </figure>
+  );
+}
+
+function EkfSektion({ v, c, saet }) {
+  const ok = c.E > 0;
+  const rm = c.AG - v.r;
+  const renter = (v.G * v.r) / 100;
+  const efterRenter = c.R - renter;
+  const foelsomhed = 1 + c.gearing;
+  const fortegn = x => (x >= 0 ? "+" : "−") + f1(Math.abs(x));
+
+  return (
+    <section className="pd-ekf">
+      <p className="ra-eyebrow" style={{ margin: "0 0 6px" }}>Pyramiden fortsætter</p>
+      <h3>Fra afkastningsgrad til egenkapitalens forrentning</h3>
+      <p className="pd-tekst">
+        Afkastningsgraden ser på al kapital i virksomheden – den er driftens afkast. Ejerne interesserer sig for
+        deres egen del, og den afhænger også af, hvordan virksomheden er finansieret. Formlen nedenfor – ofte
+        kaldt <b>gearingsformlen</b> – deler egenkapitalens forrentning op i to bidrag: det, driften giver, og det,
+        finansieringen lægger til eller trækker fra.
+      </p>
+
+      <div className="pd-ligning">
+        <div className="pd-gruppe"><div className="pd-led top"><span>EKF</span><b>{ok ? pct(c.EKF) : "–"}</b></div><small>ejernes afkast</small></div>
+        <span className="pd-lig">=</span>
+        <div className="pd-gruppe"><div className="pd-led nt"><span>AG</span><b>{pct(c.AG)}</b></div><small>driftens bidrag</small></div>
+        <span className="pd-lig">+</span>
+        <div className="pd-gruppe bue">
+          <div className="pd-raekke">
+            <span className="pd-lig">(</span>
+            <div className="pd-led nt"><span>AG</span><b>{pct(c.AG)}</b></div>
+            <span className="pd-lig">−</span>
+            <div className="pd-led sk"><span>Lånerente</span><b>{pct(v.r)}</b></div>
+            <span className="pd-lig">)</span>
+          </div>
+          <small>rentemarginal = {fortegn(rm)} pct.point</small>
+        </div>
+        <span className="pd-lig">×</span>
+        <div className="pd-gruppe"><div className="pd-led bl"><span>Gearing</span><b>{ok ? f2(c.gearing) : "–"}</b></div><small>gæld / egenkapital</small></div>
+      </div>
+      <p className="pd-bidrag">
+        {ok ? <>Gearingseffekt = rentemarginal × gearing = {fortegn(rm)} × {f2(c.gearing)} = <b>{fortegn(c.loft)} pct.point</b> oven i afkastningsgraden.</> : "Egenkapitalen er nul eller negativ – sæt gælden lavere end aktiverne."}
+      </p>
+
+      <div className="pd-ekf-skydere">
+        <label>
+          <span>Gns. gæld (fremmedkapital) <b>{kr(v.G)}</b></span>
+          <input type="range" min={0} max={60000} step={1000} value={v.G} onChange={e => saet("G", Number(e.target.value))} />
+        </label>
+        <label>
+          <span>Lånerente <b>{pct(v.r)}</b></span>
+          <input type="range" min={0} max={15} step={0.5} value={v.r} onChange={e => saet("r", Number(e.target.value))} />
+        </label>
+      </div>
+
+      <h4 className="pd-h4">Formlen led for led</h4>
+      <div className="pd-led3">
+        <div>
+          <span className="nr">1</span>
+          <b>Afkastningsgraden – driftens bidrag</b>
+          <p>
+            Hvad al kapitalen i virksomheden forrentes med, uanset hvem der har skudt den ind. Havde virksomheden
+            ingen gæld, ville ejerne få præcis dette: EKF = AG. Alt, hvad der står efter plusset, skyldes altså
+            finansieringen – ikke driften.
+          </p>
+        </div>
+        <div>
+          <span className="nr">2</span>
+          <b>Rentemarginalen – hvad hver lånt krone tjener</b>
+          <p>
+            En lånt krone bliver sat i arbejde i driften og forrentes dér med afkastningsgraden ({pct(c.AG)}).
+            Men den koster lånerenten ({pct(v.r)}). Forskellen – {fortegn(rm)} procentpoint – er, hvad hver lånt
+            krone efterlader til ejerne. Er den positiv, tjener ejerne på at låne; er den negativ, betaler de for
+            det.
+          </p>
+        </div>
+        <div>
+          <span className="nr">3</span>
+          <b>Gearingen – hvor mange gange effekten tæller</b>
+          <p>
+            Gearingen er antallet af lånte kroner pr. krone egenkapital ({ok ? f2(c.gearing) : "–"}). Rentemarginalen
+            ganges med den, fordi gevinsten (eller tabet) fra alle de lånte kroner lander hos en mindre gruppe
+            kroner: ejernes. Jo mere gæld pr. ejerkrone, jo kraftigere virker rentemarginalen – i begge retninger.
+          </p>
+        </div>
+      </div>
+
+      {ok && (
+        <>
+          <h4 className="pd-h4">Regn efter – formlen er ikke magi</h4>
+          <div className="pd-regn">
+            <div><span>Resultat af primær drift</span><b>{kr(c.R)}</b><small>AG × gns. aktiver = {pct(c.AG)} × {kr(c.A)}</small></div>
+            <div><span>− renter til långiverne</span><b>{kr(renter)}</b><small>lånerente × gæld = {pct(v.r)} × {kr(v.G)}</small></div>
+            <div className="sum"><span>= resultat til ejerne</span><b>{kr(efterRenter)}</b><small>før skat</small></div>
+            <div className="sum"><span>÷ egenkapital</span><b>{kr(c.E)}</b><small>gns. aktiver − gæld</small></div>
+            <div className="res"><span>= egenkapitalens forrentning</span><b>{pct((efterRenter / c.E) * 100)}</b><small>samme tal som formlen giver</small></div>
+          </div>
+          <p className="pd-lille">
+            Formlen og udregningen i kroner giver altid samme resultat. Formlen er bare den samme udregning skrevet om, så man kan se,
+            hvor meget af ejernes afkast der kommer fra driften, og hvor meget der kommer fra finansieringen.
+          </p>
+
+          <h4 className="pd-h4">Gearing forstærker – i begge retninger</h4>
+          <GearingGraf AG={c.AG} r={v.r} gearing={c.gearing} />
+          <div className="ra-callout" style={{ marginTop: 10 }}>
+            {c.AG > v.r ? (
+              <span><b>Rentemarginalen er positiv</b> ({fortegn(rm)} pct.point), så gearingen <b>løfter</b> egenkapitalens forrentning over afkastningsgraden. Mere gæld giver et større løft – men også mere risiko.</span>
+            ) : c.AG < v.r ? (
+              <span><b>Rentemarginalen er negativ</b> ({fortegn(rm)} pct.point), så gearingen <b>trækker</b> egenkapitalens forrentning ned under afkastningsgraden. Her koster gælden mere, end den tjener i driften – og jo mere gæld, jo værre.</span>
+            ) : (
+              <span>Rentemarginalen er nul, så gearingen hverken løfter eller sænker egenkapitalens forrentning.</span>
+            )}{" "}
+            <b>Følsomhed:</b> falder afkastningsgraden 1 procentpoint, falder egenkapitalens forrentning{" "}
+            <b>{f1(foelsomhed)} procentpoint</b> (1 + gearing). Det er risikoen ved gearing, sagt i ét tal.
+          </div>
+        </>
+      )}
+
+      <h4 className="pd-h4">Hvad bruger du formlen til?</h4>
+      <div className="pd-brug">
+        <div>
+          <b>Forklare, hvorfor EKF afviger fra AG</b>
+          <p>
+            Ligger egenkapitalens forrentning langt over afkastningsgraden, skyldes forskellen gearingseffekten – ikke
+            driften. Det er en forklaring på trin 2: <i>"EKF stiger mere end AG, fordi rentemarginalen er positiv, og
+            gearingen er øget."</i>
+          </p>
+        </div>
+        <div>
+          <b>Finde årsagen til en udvikling</b>
+          <p>
+            Er EKF steget fra det ene år til det andet? Formlen viser, om det skyldes bedre drift (AG steg), billigere
+            lån (renten faldt) eller mere gæld (gearingen steg). De tre har meget forskellig betydning for, hvor sund
+            forbedringen er.
+          </p>
+        </div>
+        <div>
+          <b>Vurdere, om det kan betale sig at låne</b>
+          <p>
+            Rentemarginalen er målestokken: kun når afkastningsgraden er højere end lånerenten, tjener ejerne på
+            gælden. Det er en vurdering på trin 3 – med lånerenten som navngiven målestok.
+          </p>
+        </div>
+        <div>
+          <b>Vurdere risikoen</b>
+          <p>
+            En lille rentemarginal og en høj gearing er en sårbar kombination: falder driften lidt, eller stiger
+            renten, vender effekten. Følsomheden (1 + gearing) og soliditetsgraden fortæller, hvor lidt der skal til.
+          </p>
+        </div>
+      </div>
+
+      <div className="pd-husk">
+        <b>Husk i et rigtigt regnskab</b>
+        <ul>
+          <li>Brug <b>fremmedkapitalens forrentning</b> som lånerente. Den er et gennemsnit over al gæld – også den rentefri leverandørgæld – så den er lavere end bankens rente.</li>
+          <li>Formlen gælder <b>før skat</b>. Egenkapitalens forrentning efter skat er tilnærmelsesvis formlens resultat × (1 − skatteprocenten).</li>
+          <li>Andre poster – fx finansielle indtægter eller særlige poster – gør, at formlen og regnskabets tal ikke rammer præcis ens. Formlen forklarer <i>mekanikken</i>; tallene skal stadig komme fra regnskabet.</li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 export default function DuPontView() {
   const [v, setV] = useState(DEF);
   const [lyser, setLyser] = useState([]);
@@ -228,50 +459,7 @@ export default function DuPontView() {
         øge den likvide beholdning: afkastningsgraden falder, selvom driften er uændret.
       </div>
 
-      <section className="pd-ekf">
-        <p className="ra-eyebrow" style={{ margin: "0 0 6px" }}>Pyramiden fortsætter</p>
-        <h3>Fra afkastningsgrad til egenkapitalens forrentning</h3>
-        <p className="pd-tekst">
-          Afkastningsgraden ser på al kapital i virksomheden. Ejerne interesserer sig for deres
-          egen del – og den afhænger også af, hvordan virksomheden er finansieret.
-        </p>
-        <div className="pd-ligning">
-          <div className="pd-led top"><span>EKF</span><b>{c.EKF === null ? "–" : pct(c.EKF)}</b></div>
-          <span className="pd-lig">=</span>
-          <div className="pd-led nt"><span>AG</span><b>{pct(c.AG)}</b></div>
-          <span className="pd-lig">+ (</span>
-          <div className="pd-led nt"><span>AG</span><b>{pct(c.AG)}</b></div>
-          <span className="pd-lig">−</span>
-          <div className="pd-led sk"><span>Lånerente</span><b>{pct(v.r)}</b></div>
-          <span className="pd-lig">) ×</span>
-          <div className="pd-led bl"><span>Gearing</span><b>{c.E > 0 ? f2(c.gearing) : "–"}</b></div>
-        </div>
-        <div className="pd-ekf-skydere">
-          <label>
-            <span>Gns. gæld (fremmedkapital) <b>{kr(v.G)}</b></span>
-            <input type="range" min={0} max={60000} step={1000} value={v.G} onChange={e => saet("G", Number(e.target.value))} />
-          </label>
-          <label>
-            <span>Lånerente <b>{pct(v.r)}</b></span>
-            <input type="range" min={0} max={15} step={0.5} value={v.r} onChange={e => saet("r", Number(e.target.value))} />
-          </label>
-          <p className="pd-lille">
-            Egenkapital = gns. aktiver − gns. gæld = {kr(c.A)} − {kr(v.G)} = <b>{kr(c.E)}</b> · Gearing = gæld / egenkapital ·
-            Gearingens bidrag = <b>{c.E > 0 ? (c.loft >= 0 ? "+" : "") + pct(c.loft) : "–"}</b>
-          </p>
-        </div>
-        <div className="ra-callout" style={{ marginTop: 12 }}>
-          {c.E <= 0 ? (
-            <span>Egenkapitalen er nul eller negativ med de valgte tal, så egenkapitalens forrentning kan ikke beregnes meningsfuldt. Sæt gælden lavere end aktiverne.</span>
-          ) : c.AG > v.r ? (
-            <span><b>Afkastningsgraden ({pct(c.AG)}) er højere end lånerenten ({pct(v.r)})</b>, så gearingen <b>løfter</b> egenkapitalens forrentning over afkastningsgraden. Jo højere gearing, jo større løft – men også jo større risiko.</span>
-          ) : c.AG < v.r ? (
-            <span><b>Afkastningsgraden ({pct(c.AG)}) er lavere end lånerenten ({pct(v.r)})</b>, så gearingen <b>trækker</b> egenkapitalens forrentning ned under afkastningsgraden. Her koster gælden mere, end aktiverne forrenter.</span>
-          ) : (
-            <span>Afkastningsgraden er lig lånerenten, så gearingen hverken løfter eller sænker egenkapitalens forrentning.</span>
-          )}
-        </div>
-      </section>
+      <EkfSektion v={v} c={c} saet={saet} />
 
       <div style={{ marginTop: 16, fontSize: 12, color: "var(--slate)", fontStyle: "italic" }}>
         Simuleringen bruger den sammenhæng før skat, der ligger til grund for DuPont-modellen, og illustrerer mekanikken.
@@ -287,14 +475,6 @@ export default function DuPontView() {
         pr. omsætningskrone (venstre side) eller ved at skabe mere omsætning med den samme kapital (højre side). De to
         kan udveksles: et supermarked har lav overskudsgrad, men høj omsætningshastighed, mens en guldsmed har høj
         overskudsgrad og lav hastighed. Afkastningsgraden kan ende det samme sted ad to helt forskellige veje.
-      </div>
-      <div className="ra-callout">
-        <b>Om egenkapitalens forrentning.</b> Hvor afkastningsgraden ser på hele den investerede kapital, viser
-        egenkapitalens forrentning, hvad <i>ejerne</i> får ud af netop deres indskud. Sammenhængen går gennem
-        gearingen: når virksomheden låner til en rente, der er lavere end afkastningsgraden, tjener den mere på de
-        lånte penge, end de koster, og gevinsten tilfalder ejerne. Men løftestangen virker begge veje: falder
-        afkastningsgraden under lånerenten, forstærker gearingen tabet. Høj gearing giver højere forventet
-        forrentning – og højere risiko.
       </div>
     </div>
   );
@@ -349,5 +529,49 @@ const PyramideStil = () => (
     .pd-ekf-skydere label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--navy); }
     .pd-ekf-skydere label b { font-family: 'Spline Sans Mono', monospace; color: var(--burgundy); margin-left: 6px; }
     .pd-ekf-skydere input[type=range] { accent-color: var(--burgundy); }
+    .pd-gruppe { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .pd-gruppe small { font-size: 11px; color: var(--slate); font-weight: 600; text-align: center; }
+    .pd-gruppe.bue { border-bottom: 2px solid #2F4FB0; padding: 0 4px 4px; border-radius: 0 0 10px 10px; }
+    .pd-gruppe.bue small { color: #2F4FB0; }
+    .pd-raekke { display: flex; align-items: center; gap: 6px; }
+    .pd-bidrag { font-size: 14px; color: var(--ink); margin: 12px 0 0; }
+    .pd-h4 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); margin: 24px 0 10px; font-weight: 700; }
+    .pd-led3 { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 760px) { .pd-led3 { grid-template-columns: repeat(3, 1fr); } }
+    .pd-led3 > div { border: 1.5px solid var(--line); border-radius: 10px; padding: 14px 16px; background: #FDFCFA; }
+    .pd-led3 .nr { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: var(--cream); align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 800; margin-bottom: 6px; }
+    .pd-led3 b { display: block; font-family: 'Fraunces', serif; font-size: 16px; color: var(--navy); margin-bottom: 4px; }
+    .pd-led3 p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink); }
+    .pd-regn { display: grid; gap: 0; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; max-width: 620px; }
+    .pd-regn > div { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; padding: 8px 14px; border-top: 1px solid var(--line); background: #fff; }
+    .pd-regn > div:first-child { border-top: none; }
+    .pd-regn span { font-size: 14px; color: var(--ink); }
+    .pd-regn b { font-family: 'Spline Sans Mono', monospace; font-size: 14px; text-align: right; color: var(--navy); }
+    .pd-regn small { grid-column: 1 / -1; font-size: 11.5px; color: var(--slate); font-family: 'Spline Sans Mono', monospace; }
+    .pd-regn .sum { background: var(--neutral); }
+    .pd-regn .res { background: var(--navy); } .pd-regn .res span, .pd-regn .res b { color: var(--cream); } .pd-regn .res small { color: rgba(247,244,238,.75); }
+    .pd-graf { margin: 0; border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 12px 10px; background: #fff; }
+    .pd-graf svg { width: 100%; height: auto; display: block; cursor: crosshair; }
+    .pd-graf .gitter { stroke: rgba(28,43,58,.08); }
+    .pd-graf .akse { font-size: 11px; fill: var(--slate); font-family: 'Spline Sans Mono', monospace; }
+    .pd-graf .aksetitel { font-size: 11.5px; fill: var(--slate); }
+    .pd-graf .ag-linje { stroke: var(--gold); stroke-width: 2; stroke-dasharray: 6 5; }
+    .pd-graf .ekf-linje { stroke: var(--navy); stroke-width: 2.5; }
+    .pd-graf .etiket { font-size: 12px; fill: var(--slate); font-weight: 600; }
+    .pd-graf .etiket.stærk { fill: var(--navy); font-weight: 800; }
+    .pd-graf .punkt { fill: var(--burgundy); stroke: #fff; stroke-width: 2; }
+    .pd-graf .sigte { stroke: var(--slate); stroke-width: 1; stroke-dasharray: 3 3; }
+    .pd-graf .sigtepunkt { fill: var(--navy); }
+    .pd-graf-tip { font-size: 13px; color: var(--ink); margin: 4px 0 6px; min-height: 18px; }
+    .pd-graf figcaption { font-size: 13px; color: var(--slate); line-height: 1.5; }
+    .pd-brug { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 700px) { .pd-brug { grid-template-columns: 1fr 1fr; } }
+    .pd-brug > div { border-left: 4px solid var(--burgundy); background: #FDFCFA; border-radius: 0 10px 10px 0; padding: 12px 14px; }
+    .pd-brug b { font-size: 14.5px; color: var(--navy); }
+    .pd-brug p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--ink); }
+    .pd-husk { margin-top: 18px; background: #FBF3DC; border-radius: 10px; padding: 12px 16px; }
+    .pd-husk b { color: var(--navy); }
+    .pd-husk ul { margin: 6px 0 0; padding-left: 18px; }
+    .pd-husk li { font-size: 13.5px; line-height: 1.55; color: var(--ink); margin-bottom: 4px; }
   `}</style>
 );
