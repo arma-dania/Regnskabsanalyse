@@ -130,74 +130,6 @@ function Skyder({ k, label, v, saet, min, max, step }) {
 
 /* ---------------- Pyramiden fortsætter: EKF ---------------- */
 
-// Grafen: EKF som funktion af gearingen. Linjen er ret, og dens hældning ER
-// rentemarginalen – det er hele pointen, så den skal kunne ses.
-function GearingGraf({ AG, r, gearing }) {
-  const [hover, setHover] = useState(null);
-  const GW = 760, GH = 280, PL = 50, PR = 96, PT = 16, PB = 44;
-  const xMax = Math.max(3, Math.ceil(gearing + 0.5));
-  const ekf = g => AG + (AG - r) * g;
-  const ys = [ekf(0), ekf(xMax), AG, 0];
-  // Pæne trin på y-aksen (1, 2, 5, 10, 20 …), så aksen er let at læse.
-  const spaend = Math.max(Math.max(...ys) - Math.min(...ys), 5);
-  const trin = [1, 2, 5, 10, 20, 50, 100].find(t => spaend / t <= 6) ?? 100;
-  const yMin = Math.floor(Math.min(...ys) / trin) * trin, yMax = Math.ceil(Math.max(...ys) / trin) * trin;
-  const X = g => PL + (g / xMax) * (GW - PL - PR);
-  const Y = y => PT + (1 - (y - yMin) / (yMax - yMin)) * (GH - PT - PB);
-  const yTicks = [];
-  for (let t = yMin; t <= yMax + 1e-9; t += trin) yTicks.push(t);
-  const xTicks = Array.from({ length: xMax + 1 }, (_, i) => i);
-
-  function flyt(e) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const gx = ((e.clientX - rect.left) / rect.width) * GW;
-    const g = Math.min(xMax, Math.max(0, ((gx - PL) / (GW - PL - PR)) * xMax));
-    setHover(Math.round(g * 10) / 10);
-  }
-
-  const farve = AG > r ? "var(--ok)" : AG < r ? "var(--err)" : "var(--slate)";
-  return (
-    <figure className="pd-graf">
-      <svg viewBox={`0 0 ${GW} ${GH}`} role="img"
-        aria-label={`EKF stiger med ${f1(AG - r)} procentpoint for hver enhed gearing`}
-        onMouseMove={flyt} onMouseLeave={() => setHover(null)}>
-        {yTicks.map(t => (
-          <g key={t}>
-            <line x1={PL} x2={GW - PR} y1={Y(t)} y2={Y(t)} className="gitter" />
-            <text x={PL - 8} y={Y(t) + 4} textAnchor="end" className="akse">{Math.round(t)} %</text>
-          </g>
-        ))}
-        {xTicks.map(t => <text key={t} x={X(t)} y={GH - PB + 18} textAnchor="middle" className="akse">{t}</text>)}
-        <text x={(PL + GW - PR) / 2} y={GH - 6} textAnchor="middle" className="aksetitel">Gearing (gæld pr. krone egenkapital)</text>
-
-        <line x1={X(0)} x2={X(xMax)} y1={Y(AG)} y2={Y(AG)} className="ag-linje" />
-        <text x={X(xMax) + 6} y={Y(AG) + 4} className="etiket">AG {f1(AG)} %</text>
-
-        <line x1={X(0)} x2={X(xMax)} y1={Y(ekf(0))} y2={Y(ekf(xMax))} className="ekf-linje" />
-        <text x={X(xMax) + 6} y={Y(ekf(xMax)) + 4} className="etiket stærk">EKF</text>
-
-        <circle cx={X(gearing)} cy={Y(ekf(gearing))} r={6} className="punkt" />
-        {hover !== null && (
-          <g>
-            <line x1={X(hover)} x2={X(hover)} y1={PT} y2={GH - PB} className="sigte" />
-            <circle cx={X(hover)} cy={Y(ekf(hover))} r={4} className="sigtepunkt" />
-          </g>
-        )}
-      </svg>
-      <div className="pd-graf-tip">
-        {hover !== null
-          ? <>Ved gearing <b>{f1(hover)}</b> bliver EKF <b>{f1(ekf(hover))} %</b></>
-          : <>Nu: gearing <b>{f2(gearing)}</b> giver EKF <b>{f1(ekf(gearing))} %</b> · før musen hen over grafen</>}
-      </div>
-      <figcaption>
-        Linjen starter i afkastningsgraden (ingen gæld) og hælder med rentemarginalen:{" "}
-        <b style={{ color: farve }}>{AG >= r ? "+" : "−"}{f1(Math.abs(AG - r))} procentpoint</b> EKF for hver ekstra
-        krone gæld pr. krone egenkapital. {AG > r ? "Den stiger – gearingen løfter." : AG < r ? "Den falder – gearingen trækker ned." : "Den er flad – gearingen gør ingen forskel."}
-      </figcaption>
-    </figure>
-  );
-}
-
 function EkfSektion({ v, c, saet }) {
   const ok = c.E > 0;
   const rm = c.AG - v.r;
@@ -250,6 +182,20 @@ function EkfSektion({ v, c, saet }) {
         </label>
       </div>
 
+      {ok && (
+        <div className="ra-callout" style={{ marginTop: 14 }}>
+          {c.AG > v.r ? (
+            <span><b>Rentemarginalen er positiv</b> ({fortegn(rm)} pct.point), så gearingen <b>løfter</b> egenkapitalens forrentning over afkastningsgraden. Mere gæld giver et større løft – men også mere risiko.</span>
+          ) : c.AG < v.r ? (
+            <span><b>Rentemarginalen er negativ</b> ({fortegn(rm)} pct.point), så gearingen <b>trækker</b> egenkapitalens forrentning ned under afkastningsgraden. Her koster gælden mere, end den tjener i driften – og jo mere gæld, jo værre.</span>
+          ) : (
+            <span>Rentemarginalen er nul, så gearingen hverken løfter eller sænker egenkapitalens forrentning.</span>
+          )}{" "}
+          <b>Følsomhed:</b> falder afkastningsgraden 1 procentpoint, falder egenkapitalens forrentning{" "}
+          <b>{f1(foelsomhed)} procentpoint</b> (1 + gearing). Det er risikoen ved gearing, sagt i ét tal.
+        </div>
+      )}
+
       <h4 className="pd-h4">Formlen led for led</h4>
       <div className="pd-led3">
         <div>
@@ -296,20 +242,6 @@ function EkfSektion({ v, c, saet }) {
             Formlen og udregningen i kroner giver altid samme resultat. Formlen er bare den samme udregning skrevet om, så man kan se,
             hvor meget af ejernes afkast der kommer fra driften, og hvor meget der kommer fra finansieringen.
           </p>
-
-          <h4 className="pd-h4">Gearing forstærker – i begge retninger</h4>
-          <GearingGraf AG={c.AG} r={v.r} gearing={c.gearing} />
-          <div className="ra-callout" style={{ marginTop: 10 }}>
-            {c.AG > v.r ? (
-              <span><b>Rentemarginalen er positiv</b> ({fortegn(rm)} pct.point), så gearingen <b>løfter</b> egenkapitalens forrentning over afkastningsgraden. Mere gæld giver et større løft – men også mere risiko.</span>
-            ) : c.AG < v.r ? (
-              <span><b>Rentemarginalen er negativ</b> ({fortegn(rm)} pct.point), så gearingen <b>trækker</b> egenkapitalens forrentning ned under afkastningsgraden. Her koster gælden mere, end den tjener i driften – og jo mere gæld, jo værre.</span>
-            ) : (
-              <span>Rentemarginalen er nul, så gearingen hverken løfter eller sænker egenkapitalens forrentning.</span>
-            )}{" "}
-            <b>Følsomhed:</b> falder afkastningsgraden 1 procentpoint, falder egenkapitalens forrentning{" "}
-            <b>{f1(foelsomhed)} procentpoint</b> (1 + gearing). Det er risikoen ved gearing, sagt i ét tal.
-          </div>
         </>
       )}
 
@@ -550,20 +482,6 @@ const PyramideStil = () => (
     .pd-regn small { grid-column: 1 / -1; font-size: 11.5px; color: var(--slate); font-family: 'Spline Sans Mono', monospace; }
     .pd-regn .sum { background: var(--neutral); }
     .pd-regn .res { background: var(--navy); } .pd-regn .res span, .pd-regn .res b { color: var(--cream); } .pd-regn .res small { color: rgba(247,244,238,.75); }
-    .pd-graf { margin: 0; border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 12px 10px; background: #fff; }
-    .pd-graf svg { width: 100%; height: auto; display: block; cursor: crosshair; }
-    .pd-graf .gitter { stroke: rgba(28,43,58,.08); }
-    .pd-graf .akse { font-size: 11px; fill: var(--slate); font-family: 'Spline Sans Mono', monospace; }
-    .pd-graf .aksetitel { font-size: 11.5px; fill: var(--slate); }
-    .pd-graf .ag-linje { stroke: var(--gold); stroke-width: 2; stroke-dasharray: 6 5; }
-    .pd-graf .ekf-linje { stroke: var(--navy); stroke-width: 2.5; }
-    .pd-graf .etiket { font-size: 12px; fill: var(--slate); font-weight: 600; }
-    .pd-graf .etiket.stærk { fill: var(--navy); font-weight: 800; }
-    .pd-graf .punkt { fill: var(--burgundy); stroke: #fff; stroke-width: 2; }
-    .pd-graf .sigte { stroke: var(--slate); stroke-width: 1; stroke-dasharray: 3 3; }
-    .pd-graf .sigtepunkt { fill: var(--navy); }
-    .pd-graf-tip { font-size: 13px; color: var(--ink); margin: 4px 0 6px; min-height: 18px; }
-    .pd-graf figcaption { font-size: 13px; color: var(--slate); line-height: 1.5; }
     .pd-brug { display: grid; gap: 12px; grid-template-columns: 1fr; }
     @media (min-width: 700px) { .pd-brug { grid-template-columns: 1fr 1fr; } }
     .pd-brug > div { border-left: 4px solid var(--burgundy); background: #FDFCFA; border-radius: 0 10px 10px 0; padding: 12px 14px; }
