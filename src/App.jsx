@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { api, noter } from "./api.js";
 import TrappenView from "./Trappen.jsx";
+import { UDDYBNING } from "./noegletal-uddybning.js";
 // Trappen og trinlogikken hentes fra serverens egne filer, så trinnenes navne,
 // spørgsmål og beregningen af niveau kun står ét sted.
 import { TRIN, NIVEAUNAVN, MAKS_TRINTEGN, MAKS_KONKLUSIONSTEGN } from "../netlify/functions/lib/trappe.mjs";
@@ -654,6 +655,26 @@ const Styles = () => (
       .dp-side { position: sticky; top: 14px; align-self: start; max-height: calc(100vh - 28px); overflow: auto; }
     }
     .dp-side-sliders { display: grid; gap: 11px; }
+    /* Nøgletal – uddybning */
+    .ng-intro { font-size: 14px; color: var(--slate); margin: 0 0 14px; line-height: 1.55; }
+    .ng-body { padding-top: 12px; }
+    .ng-kort { font-family: 'Fraunces', serif; font-size: 19px; line-height: 1.35; color: var(--navy); margin: 4px 0 10px; }
+    .ng-eks { background: var(--neutral); border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.5; color: var(--ink); margin-bottom: 10px; }
+    .ng-eks span { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--burgundy); margin-right: 8px; }
+    .ng-h { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--slate); margin: 16px 0 4px; font-weight: 700; }
+    .ng-p { font-size: 14.5px; line-height: 1.65; color: var(--ink); margin: 0; max-width: 72ch; }
+    .ng-hl { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 12px; }
+    @media (min-width: 640px) { .ng-hl { grid-template-columns: 1fr 1fr; } }
+    .ng-hl > div { border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fff; }
+    .ng-hl b { font-size: 13px; color: var(--navy); }
+    .ng-hl p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--slate); }
+    .ng-model { margin-top: 12px; border-left: 4px solid var(--navy); background: #F3F5F8; border-radius: 0 8px 8px 0; padding: 9px 12px; }
+    .ng-fald { margin-top: 10px; border-left: 4px solid var(--gold); background: #FBF3DC; border-radius: 0 8px 8px 0; padding: 9px 12px; }
+    .ng-model b, .ng-fald b { font-size: 13px; color: var(--navy); }
+    .ng-model p, .ng-fald p { margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+    .ng-rel { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .ng-rel > span { font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--slate); font-weight: 700; margin-right: 4px; }
+    .ng-rel .ra-chip { padding: 5px 11px; font-size: 12.5px; }
     /* Formuleringstrappen */
     .ra-trappehoved { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 6px; }
     .ra-niveau { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--navy); }
@@ -770,12 +791,61 @@ function IntroView({ visTrappen }) {
   );
 }
 
+function Uddybning({ n, aabn }) {
+  const u = UDDYBNING[n.id];
+  return (
+    <div className="ra-body ng-body">
+      {u && <p className="ng-kort">{u.kortSagt}</p>}
+      {u && <div className="ng-eks"><span>Eksempel</span>{u.eksempel}</div>}
+      <div className="ra-row"><span className="lab">Definition</span><span>{n.beskrivelse}</span></div>
+      {n.note && <div className="ra-row"><span className="lab">Husk</span><span className="ra-tip">{n.note}</span></div>}
+      {u && (
+        <>
+          <h5 className="ng-h">Hvad måler det?</h5>
+          <p className="ng-p">{u.forklaring}</p>
+          <div className="ng-hl">
+            <div><b>▲ Et højt tal</b><p>{u.hoej}</p></div>
+            <div><b>▼ Et lavt tal</b><p>{u.lav}</p></div>
+          </div>
+          <h5 className="ng-h">Hvorfor er det vigtigt?</h5>
+          <p className="ng-p">{u.vigtigt}</p>
+          {u.model && <div className="ng-model"><b>Forretningsmodellen</b><p>{u.model}</p></div>}
+          <div className="ng-fald"><b>⚠ Typisk faldgrube</b><p>{u.faldgrube}</p></div>
+          <div className="ng-rel">
+            <span>Hænger sammen med</span>
+            {u.relateret.map((id) => {
+              const r = NOEGLETAL.find((x) => x.id === id);
+              return r ? <button key={id} className="ra-chip" onClick={() => aabn(id)}>{r.kort || r.navn}</button> : null;
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ReferenceView() {
   const [filter, setFilter] = useState("alle");
   const [open, setOpen] = useState(null);
+  const [rul, setRul] = useState(null);
   const liste = useMemo(() => (filter === "alle" ? NOEGLETAL : NOEGLETAL.filter((n) => n.gruppe === filter)), [filter]);
+
+  // Et klik på et relateret nøgletal åbner det og ruller hen til det – også
+  // når det ligger i et andet analyseområde end det, der er filtreret på.
+  function aabn(id) {
+    const n = NOEGLETAL.find((x) => x.id === id);
+    if (filter !== "alle" && n && n.gruppe !== filter) setFilter(n.gruppe);
+    setOpen(id); setRul(id);
+  }
+  useEffect(() => {
+    if (!rul) return;
+    document.getElementById("ng-" + rul)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setRul(null);
+  }, [rul, filter]);
+
   return (
     <div className="ra-fade">
+      <p className="ng-intro">Tryk på <b>+</b> for at læse, hvad nøgletallet måler, hvad et højt og et lavt tal betyder, hvorfor det er vigtigt – og hvor man typisk tager fejl.</p>
       <div className="ra-chips">
         <button className={"ra-chip" + (filter === "alle" ? " active" : "")} onClick={() => setFilter("alle")}>Alle ({NOEGLETAL.length})</button>
         {GRUPPE_NOEGLER.map((key) => (
@@ -786,19 +856,14 @@ function ReferenceView() {
         {liste.map((n, i) => {
           const g = GRUPPER[n.gruppe]; const isOpen = open === n.id;
           return (
-            <div className={"ra-card" + (isOpen ? " open" : "")} key={n.id} style={{ animationDelay: `${i * 20}ms` }}>
-              <div className="ra-card-head" onClick={() => setOpen(isOpen ? null : n.id)}>
+            <div id={"ng-" + n.id} className={"ra-card" + (isOpen ? " open" : "")} key={n.id} style={{ animationDelay: `${i * 20}ms`, scrollMarginTop: 16 }}>
+              <div className="ra-card-head" onClick={() => setOpen(isOpen ? null : n.id)} role="button" aria-expanded={isOpen}>
                 <span className="ra-tag">{g.navn}</span>
                 <div><h4>{n.navn}</h4>{n.kort && <span className="kort">{n.kort}</span>}</div>
                 <span className="ra-plus">+</span>
               </div>
               <div className="ra-formel">{n.formel}</div>
-              {isOpen && (
-                <div className="ra-body">
-                  <div className="ra-row"><span className="lab">Viser</span><span>{n.beskrivelse}</span></div>
-                  {n.note && <div className="ra-row"><span className="lab">Husk</span><span className="ra-tip">{n.note}</span></div>}
-                </div>
-              )}
+              {isOpen && <Uddybning n={n} aabn={aabn} />}
             </div>
           );
         })}
