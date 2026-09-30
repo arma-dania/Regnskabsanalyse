@@ -1,0 +1,18 @@
+# Sæt "Base directory" til vejledende i Netlify, så længe appen ligger i
+# denne mappe. Flyttes den til sit eget repo, fjernes den indstilling.
+[build]
+  # Prøverne kører før hvert deploy og stopper det, hvis en dekomposition
+  # ikke længere går op.
+  command = "npm run proeve && npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "same-origin"
