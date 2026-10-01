@@ -1326,7 +1326,7 @@ export default function App() {
       <div className="ra-wrap">
         <header>
           <div className="ra-topbar">
-            <p className="ra-eyebrow">Erhvervsakademi Dania · Markedsføringsøkonom AK · Forløb 2</p>
+            <p className="ra-eyebrow">Erhvervsakademi Dania · Markedsføringsøkonom · Sprint 2</p>
             {bruger && (
               <span className="ra-bruger">
                 {bruger.navn}{bruger.hold ? ` · ${bruger.hold}` : ""}
