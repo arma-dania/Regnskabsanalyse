@@ -38,6 +38,7 @@ process.env.ANTHROPIC_API_KEY = "kun-lokal-proeve-noegle";
 process.env.UNDERVISER_ARNE = "kun-lokal-proeve-arne";
 process.env.UNDERVISER_HELLE = "kun-lokal-proeve-helle";
 process.env.UNDERVISER_RASMUS = "kun-lokal-proeve-rasmus";
+process.env.UNDERVISER_TORBEN = "kun-lokal-proeve-torben";
 
 const api = (await import(path.join(ROD, "netlify/functions/api.mjs"))).default;
 const admin = (await import(path.join(ROD, "netlify/functions/admin.mjs"))).default;
