@@ -1,7 +1,7 @@
 // Underviserne på siden.
 //
 // Hver underviser har sin egen kode i sin egen miljøvariabel, så en kode kan
-// skiftes for én underviser uden at røre de andre. Skal der en fjerde til,
+// skiftes for én underviser uden at røre de andre. Skal der en til,
 // tilføjes en linje her og en miljøvariabel i Netlify – der er ikke noget
 // brugerregister at vedligeholde.
 //
@@ -12,6 +12,7 @@ export const UNDERVISERE = [
   { id: "arne", navn: "Arne", miljoenoegle: "UNDERVISER_ARNE" },
   { id: "helle", navn: "Helle", miljoenoegle: "UNDERVISER_HELLE" },
   { id: "rasmus", navn: "Rasmus", miljoenoegle: "UNDERVISER_RASMUS" },
+  { id: "torben", navn: "Torben", miljoenoegle: "UNDERVISER_TORBEN" },
 ];
 
 export const findUnderviser = id => UNDERVISERE.find(u => u.id === id) ?? null;

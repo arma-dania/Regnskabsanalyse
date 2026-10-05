@@ -128,6 +128,7 @@ må bruges, før den tages i brug på rigtige hold – samme forbehold som for
 | `UNDERVISER_ARNE` | Arnes kode |
 | `UNDERVISER_HELLE` | Helles kode |
 | `UNDERVISER_RASMUS` | Rasmus' kode |
+| `UNDERVISER_TORBEN` | Torbens kode |
 
 Alle koder og hemmeligheden skal være tilfældige. Nemmest: åbn Chrome →
 højreklik → **Undersøg** → **Console** → skriv `crypto.randomUUID()` og tryk
